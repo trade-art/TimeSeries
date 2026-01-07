@@ -42,6 +42,20 @@ jobs:
             curl
             p7zip
 
+      - name: Ensure python3 command exists
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null 2>&1; then
+            if command -v python >/dev/null 2>&1; then
+              cat > /mingw64/bin/python3 <<'EOF'
+          #!/usr/bin/env bash
+          exec python "$@"
+          EOF
+              chmod +x /mingw64/bin/python3
+            fi
+          fi
+          python3 --version
+
       - name: Download RedisTimeSeries source
         run: |
           set -euo pipefail
@@ -119,4 +133,3 @@ jobs:
           name: redistimeseries-windows
           path: dist/*.zip
           retention-days: 14
-
