@@ -1,12 +1,8 @@
-name: Build Redis + TimeSeries (Windows)
+name: Build RedisTimeSeries Module (Windows)
 
 on:
   workflow_dispatch:
     inputs:
-      redis_version:
-        description: "Redis git tag (e.g. 8.0.0)"
-        required: true
-        default: "8.0.0"
       timeseries_version:
         description: "RedisTimeSeries git tag (e.g. v7.99.91)"
         required: true
@@ -15,6 +11,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+
     defaults:
       run:
         shell: msys2 {0}
@@ -45,24 +42,6 @@ jobs:
             curl
             p7zip
 
-      - name: Download Redis source
-        run: |
-          set -euo pipefail
-          echo "Downloading redis ${{ inputs.redis_version }}"
-          curl -fsSL -o redis.tar.gz "https://github.com/redis/redis/archive/refs/tags/${{ inputs.redis_version }}.tar.gz"
-          tar -xzf redis.tar.gz
-          mv "redis-${{ inputs.redis_version }}" redis-src
-
-      - name: Build Redis (core)
-        working-directory: redis-src
-        run: |
-          set -euo pipefail
-          cd src && ./mkreleasehdr.sh && cd ..
-          JOBS="$(python -c 'import os; print(os.cpu_count() or 1)')"
-          MAKE_BIN=make
-          command -v "$MAKE_BIN" >/dev/null 2>&1 || MAKE_BIN=mingw32-make
-          "$MAKE_BIN" BUILD_TLS=yes CFLAGS="-Wno-char-subscripts -O2" -j"$JOBS"
-
       - name: Download RedisTimeSeries source
         run: |
           set -euo pipefail
@@ -73,8 +52,8 @@ jobs:
         working-directory: redistimeseries-src
         run: |
           set -euo pipefail
-          # readies 的 paella/platform.py 在 windows 分支调用了 os.version()，该属性不存在会导致
-          # deps/readies/bin/platform 输出 "platform: cannot identify" 并使构建路径解析失败。
+          # deps/readies/paella/platform.py calls os.version() on Windows, but Python's os has no version().
+          # That makes deps/readies/bin/platform fail with "platform: cannot identify" and breaks the build.
           PAELLA_PLATFORM="deps/readies/paella/platform.py"
           if [ -f "$PAELLA_PLATFORM" ]; then
             sed -i 's/self\.os_full_ver = os\.version()/self.os_full_ver = platform.version()/' "$PAELLA_PLATFORM" || true
@@ -89,44 +68,23 @@ jobs:
           command -v "$MAKE_BIN" >/dev/null 2>&1 || MAKE_BIN=mingw32-make
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS"
 
-      - name: Verify (load module + TS smoke test)
-        working-directory: redis-src/src
+      - name: Package artifact
         run: |
           set -euo pipefail
-          ./redis-server.exe --version
-          ./redis-server.exe --daemonize yes --port 6399
-          sleep 2
+          DIST="dist/RedisTimeSeries-${{ inputs.timeseries_version }}-Windows-x64"
+          mkdir -p "$DIST"
 
-          TS_MOD="$(cd ../../redistimeseries-src && find bin -maxdepth 4 -type f \( -name 'redistimeseries*.so' -o -name 'redistimeseries*.dll' \) | head -n 1)"
+          TS_MOD="$(cd redistimeseries-src && find bin -maxdepth 6 -type f \( -name 'redistimeseries*.so' -o -name 'redistimeseries*.dll' \) | head -n 1)"
           if [ -z "$TS_MOD" ]; then
             echo "ERROR: module binary not found under redistimeseries-src/bin"
             exit 1
           fi
-          echo "MODULE LOAD: $TS_MOD"
-          ./redis-cli.exe -p 6399 MODULE LOAD "$TS_MOD"
 
-          ./redis-cli.exe -p 6399 TS.CREATE test:ts RETENTION 86400000
-          ./redis-cli.exe -p 6399 TS.ADD test:ts '*' 100
-          ./redis-cli.exe -p 6399 TS.GET test:ts
-
-          ./redis-cli.exe -p 6399 SHUTDOWN NOSAVE || true
-
-      - name: Package artifact
-        run: |
-          set -euo pipefail
-          DIST="dist/Redis-${{ inputs.redis_version }}-Windows-x64-timeseries"
-          mkdir -p "$DIST"
-
-          cp redis-src/src/redis-server.exe "$DIST/"
-          cp redis-src/src/redis-cli.exe "$DIST/"
-          cp redis-src/src/redis-benchmark.exe "$DIST/" || true
-          cp redis-src/src/redis-check-aof.exe "$DIST/" || true
-          cp redis-src/src/redis-check-rdb.exe "$DIST/" || true
-
-          TS_MOD="$(cd redistimeseries-src && find bin -maxdepth 4 -type f \( -name 'redistimeseries*.so' -o -name 'redistimeseries*.dll' \) | head -n 1)"
+          # Provide both extensions for convenience.
           cp "$TS_MOD" "$DIST/redistimeseries.so"
+          cp "$TS_MOD" "$DIST/redistimeseries.dll"
 
-          # 复制常见运行时 DLL（缺哪个复制哪个，允许失败）
+          # Copy common runtime DLLs (ignore if missing).
           cp /mingw64/bin/libgcc_s_seh-1.dll "$DIST/" || true
           cp /mingw64/bin/libstdc++-6.dll "$DIST/" || true
           cp /mingw64/bin/libwinpthread-1.dll "$DIST/" || true
@@ -134,26 +92,31 @@ jobs:
           cp /mingw64/bin/libssl-3-x64.dll "$DIST/" || true
 
           cat > "$DIST/README.txt" << 'EOF'
-          Redis for Windows (MSYS2/MinGW) + RedisTimeSeries
-          ================================================
+          RedisTimeSeries module for Windows (MSYS2/MinGW)
+          ===============================================
 
-          启动：
-            redis-server.exe --port 6379
+          This artifact contains:
+          - redistimeseries.so (also copied as redistimeseries.dll)
+          - common MSYS2 runtime DLLs (if needed)
 
-          加载模块：
-            redis-cli.exe MODULE LOAD <abs-path-to>\redistimeseries.so
+          Use with a Windows Redis build that supports loadmodule,
+          e.g. https://github.com/redis-windows/redis-windows
 
-          简单测试：
+          Load module (example):
+            redis-cli.exe MODULE LOAD <ABS_PATH>\\redistimeseries.so
+
+          Quick test:
             TS.CREATE test:ts RETENTION 86400000
             TS.ADD test:ts * 100
             TS.GET test:ts
           EOF
 
-          (cd dist && 7z a -tzip "Redis-${{ inputs.redis_version }}-Windows-x64-timeseries.zip" "Redis-${{ inputs.redis_version }}-Windows-x64-timeseries")
+          (cd dist && 7z a -tzip "RedisTimeSeries-${{ inputs.timeseries_version }}-Windows-x64.zip" "RedisTimeSeries-${{ inputs.timeseries_version }}-Windows-x64")
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: redis-windows-timeseries
+          name: redistimeseries-windows
           path: dist/*.zip
           retention-days: 14
+

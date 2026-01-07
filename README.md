@@ -1,63 +1,37 @@
-# RedisTimeSeries for Windows (MSYS2/MinGW) - 独立构建仓库
+# RedisTimeSeries Windows 模块构建（MSYS2/MinGW）
 
-这个仓库用于在 **GitHub Actions 的 Windows runner（MSYS2/MinGW64）** 上构建：
+这个仓库只做一件事：在 GitHub Actions 的 Windows runner（MSYS2/MinGW64）上编译 `redistimeseries` 模块，并打包产物供 Windows Redis 加载使用。
 
-- `redis-server.exe`（Redis 源码构建）
-- `redistimeseries` 模块（作为 **loadable module**，运行时通过 `MODULE LOAD` / `loadmodule` 加载）
+Windows 版 Redis 可直接使用：`https://github.com/redis-windows/redis-windows`（需要支持 `MODULE LOAD`/`loadmodule`）。
 
-目标：只构建 TimeSeries，避免触发 RedisJSON/RediSearch/RedisBloom 等额外模块带来的 Rust/CMake/依赖问题。
+## GitHub Actions
 
-## 用法（GitHub Actions）
+1. 进入 Actions，运行 workflow：`Build RedisTimeSeries Module (Windows)`
+2. 下载 artifact（zip）：
+   - `redistimeseries.so`（同时复制了一份 `redistimeseries.dll` 方便不同 loader/习惯）
+   - 可能需要的 MSYS2 运行时 DLL（若链接为动态依赖）
 
-1. 新建一个空 GitHub 仓库，把本仓库内容推上去
-2. 进入 Actions，运行 workflow：`Build Redis + TimeSeries (Windows)`
-3. 下载 artifact：包含 `redis-server.exe`、`redis-cli.exe`、`redistimeseries.so` 及必要 DLL
+## Windows 使用示例
 
-推送示例（PowerShell）：
+1) 启动你的 Windows Redis（来自 `redis-windows/redis-windows` 或你自己的构建）
 
-```powershell
-cd "E:\win TimeSeries\redis-timeseries-windows"
-git add .
-git commit -m "build: windows redis + timeseries"
-git branch -M main
-git remote add origin https://github.com/<you>/<repo>.git
-git push -u origin main
-```
-
-## 本地运行示例（Windows）
-
-假设解压后目录里包含：
-- `redis-server.exe`
-- `redis-cli.exe`
-- `redistimeseries.so`
-
-1) 启动 Redis：
+2) 加载模块（示例）：
 
 ```powershell
-.\redis-server.exe --port 6399
-```
-
-2) 加载模块：
-
-```powershell
-.\redis-cli.exe -p 6399 MODULE LOAD (Resolve-Path .\redistimeseries.so)
+redis-cli.exe MODULE LOAD (Resolve-Path .\redistimeseries.so)
 ```
 
 3) 验证 TS：
 
 ```powershell
-.\redis-cli.exe -p 6399 TS.CREATE test:ts RETENTION 86400000
-.\redis-cli.exe -p 6399 TS.ADD test:ts * 100
-.\redis-cli.exe -p 6399 TS.GET test:ts
+redis-cli.exe TS.CREATE test:ts RETENTION 86400000
+redis-cli.exe TS.ADD test:ts * 100
+redis-cli.exe TS.GET test:ts
 ```
 
-## 版本说明
+## 为什么需要补丁
 
-- Redis 版本：默认 `8.0.0`（workflow 可输入覆盖）
-- RedisTimeSeries 版本：默认 `v7.99.91`（workflow 可输入覆盖）
-
-## 为什么要打这个补丁
-
-RedisTimeSeries 的构建会用到 `deps/readies/bin/platform` 来识别平台；在 Windows runner 上该脚本走到 `deps/readies/paella/platform.py` 的 windows 分支，而该分支有 `os.version()` 调用（Python 标准库 `os` 没有这个 API），会导致脚本报 `platform: cannot identify` 并中断后续依赖/输出路径推导。
+RedisTimeSeries 构建会用到 `deps/readies/bin/platform` 来识别平台；在 Windows runner 上会走到 `deps/readies/paella/platform.py` 的 windows 分支，而该分支里有 `os.version()` 调用（Python 标准库 `os` 并没有这个 API），导致脚本报 `platform: cannot identify` 并中断构建。
 
 workflow 里对该处做了最小替换：`os.version()` → `platform.version()`。
+
