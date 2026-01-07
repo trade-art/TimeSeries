@@ -1,0 +1,8 @@
+.DS_Store
+.idea/
+.vscode/
+
+# local build artifacts
+dist/
+redis-src/
+redistimeseries-src/
