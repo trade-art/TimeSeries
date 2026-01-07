@@ -56,6 +56,7 @@ jobs:
             fi
           fi
           python3 --version
+          python3 -m pip --version
 
       - name: Download RedisTimeSeries source
         run: |
@@ -81,6 +82,11 @@ jobs:
           JOBS="$(python -c 'import os; print(os.cpu_count() or 1)')"
           MAKE_BIN=make
           command -v "$MAKE_BIN" >/dev/null 2>&1 || MAKE_BIN=mingw32-make
+          # readies/bin/getpy3 在 CHECK=1 时会要求 python3 + pip；在 Windows/MSYS2 上用 MYPY 强制指定解释器更稳定。
+          # 同时禁用 libevent samples/benchmarks，避免 sample 代码在 Windows 下触发 -Werror=incompatible-pointer-types。
+          MYPY=python \
+          CONFIGURE_FLAGS="--disable-samples --disable-benchmarks" \
+          CC_C_FLAGS.warnings="-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration" \
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS"
 
       - name: Package artifact
