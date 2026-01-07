@@ -35,6 +35,7 @@ jobs:
             m4
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-make
+            make
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-cmake
@@ -58,7 +59,9 @@ jobs:
           set -euo pipefail
           cd src && ./mkreleasehdr.sh && cd ..
           JOBS="$(python -c 'import os; print(os.cpu_count() or 1)')"
-          make BUILD_TLS=yes CFLAGS="-Wno-char-subscripts -O2" -j"$JOBS"
+          MAKE_BIN=make
+          command -v "$MAKE_BIN" >/dev/null 2>&1 || MAKE_BIN=mingw32-make
+          "$MAKE_BIN" BUILD_TLS=yes CFLAGS="-Wno-char-subscripts -O2" -j"$JOBS"
 
       - name: Download RedisTimeSeries source
         run: |
@@ -82,7 +85,9 @@ jobs:
         run: |
           set -euo pipefail
           JOBS="$(python -c 'import os; print(os.cpu_count() or 1)')"
-          make DISABLE_WERRORS=1 -j"$JOBS"
+          MAKE_BIN=make
+          command -v "$MAKE_BIN" >/dev/null 2>&1 || MAKE_BIN=mingw32-make
+          "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS"
 
       - name: Verify (load module + TS smoke test)
         working-directory: redis-src/src
