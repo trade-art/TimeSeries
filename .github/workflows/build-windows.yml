@@ -81,6 +81,13 @@ jobs:
             sed -i '/-Werror=implicit-function-declaration/d' "$CC_DEFS"
           fi
 
+          # Patch libevent sample callback signature for Windows (evutil_socket_t is intptr_t, not int).
+          LIBEVENT_HTTP_SERVER="deps/LibMR/deps/libevent/sample/http-server.c"
+          if [ -f "$LIBEVENT_HTTP_SERVER" ]; then
+            sed -i 's/do_term(int sig, short events/do_term(evutil_socket_t sig, short events/' "$LIBEVENT_HTTP_SERVER" || true
+            sed -i 's/static void do_term(int sig, short events/static void do_term(evutil_socket_t sig, short events/' "$LIBEVENT_HTTP_SERVER" || true
+          fi
+
       - name: Build RedisTimeSeries module
         working-directory: redistimeseries-src
         run: |
@@ -91,6 +98,7 @@ jobs:
 
           # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
           export MYPY=python
+          export CFLAGS="${CFLAGS:-} -Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration"
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS"
 
       - name: Package artifact
@@ -144,4 +152,3 @@ jobs:
           name: redistimeseries-windows
           path: dist/*.zip
           retention-days: 14
-
