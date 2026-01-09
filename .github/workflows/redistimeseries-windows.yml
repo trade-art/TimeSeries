@@ -621,7 +621,7 @@ jobs:
 
           # libevent on Windows may not produce libevent_pthreads.a, but upper layers can hard-link it.
           # 无论 make 返回码如何，只要日志里出现 “cannot find ...libevent_pthreads.a” 就执行兜底修补并重跑一次 make。
-          if grep -q "cannot find .*libevent_pthreads\\.a" "$LOG"; then
+          if [ "${STATUS}" -ne 0 ] || grep -Fq "libevent_pthreads.a" "$LOG"; then
             echo "CODEX: detected missing libevent_pthreads.a; applying link fixups and rerunning make" | tee -a "$LOG"
 
             # 1) 生成 libevent_pthreads.a：把 libevent.a 复制一份作为同名代理文件
