@@ -74,13 +74,13 @@ jobs:
             sed -i 's/self\.os_full_ver = os\.version()/self.os_full_ver = platform.version()/' "$PAELLA_PLATFORM" || true
           fi
 
-          # Avoid building full "all" targets for autotools deps: build only the requested library target.
-          # This prevents libevent tests/samples from being compiled on Windows.
-          CONFIGURE_RULES="deps/readies/mk/configure.rules"
-          if [ -f "$CONFIGURE_RULES" ]; then
-            grep -q "CONFIGURE_BUILD_TARGET" "$CONFIGURE_RULES" || \
-              sed -i '1i\\\nCONFIGURE_BUILD_TARGET ?= $(if $(filter $(CONFIGURE_BUILD_DIR)/%,$(CONFIGURE_TARGET)),$(patsubst $(CONFIGURE_BUILD_DIR)/%,%,$(CONFIGURE_TARGET)),)\n' "$CONFIGURE_RULES"
-            sed -i 's/make -C \\$(CONFIGURE_BUILD_DIR) -j \\$(NPROC)\\s*$/make -C $(CONFIGURE_BUILD_DIR) -j $(NPROC) $(CONFIGURE_BUILD_TARGET)/' "$CONFIGURE_RULES" || true
+          # Configure libevent to avoid building samples/regress on Windows (they fail to compile under MinGW).
+          # Must be set before readies' mk/defs is included.
+          LIBEVENT_MK="build/libevent/Makefile"
+          if [ -f "$LIBEVENT_MK" ]; then
+            if ! grep -q "CONFIGURE_FLAGS\\.windows.*disable-samples" "$LIBEVENT_MK"; then
+              sed -i '/^include \\$\\(MK\\)\\/defs/i\\\nCONFIGURE_FLAGS.windows += --disable-samples --disable-libevent-regress --disable-openssl\n' "$LIBEVENT_MK"
+            fi
           fi
 
           # Drop readies -Werror flags that break dependency builds on Windows/MinGW (e.g. libevent samples).
