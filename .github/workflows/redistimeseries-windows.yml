@@ -83,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Fix readies platform detection on Windows: os.version() does not exist in Python.
+          #
           PAELLA_PLATFORM="deps/readies/paella/platform.py"
           if [ -f "$PAELLA_PLATFORM" ]; then
           python - <<'PY'
@@ -98,7 +98,7 @@ jobs:
           PY
           fi
 
-          # Drop readies -Werror flags that break dependency builds on Windows/MinGW.
+          #
           CC_DEFS="deps/readies/mk/cc.defs"
           if [ -f "$CC_DEFS" ]; then
             sed -i '/-Werror=incompatible-pointer-types/d' "$CC_DEFS"
@@ -137,7 +137,7 @@ jobs:
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: ä¸æ”�?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘�?*/',
+                  '  /* Windows/MSYS2: Ã¤Â¸Ã¦â€�Â?pthread_setname_np/prctlÃ¯Â¼Å’Ã¨Â·Â³Ã¨Â¿â€¡Ã§ÂºÂ¿Ã§Â¨â€¹Ã¥â€˜Â?*/',
               )
 
           #
@@ -261,7 +261,7 @@ jobs:
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: ä¸æ”�?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘�?*/',
+                  '  /* Windows/MSYS2: Ã¤Â¸Ã¦â€�Â?pthread_setname_np/prctlÃ¯Â¼Å’Ã¨Â·Â³Ã¨Â¿â€¡Ã§ÂºÂ¿Ã§Â¨â€¹Ã¥â€˜Â?*/',
               )
 
           path.write_text(text, encoding="utf-8")
@@ -591,10 +591,10 @@ jobs:
           MAKE_BIN=make
           command -v "$MAKE_BIN" >/dev/null 2>&1 || MAKE_BIN=mingw32-make
 
-          # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
+          #
           export MYPY=python
 
-          # Force Makefiles generator; readies expects make (Ninja breaks cpu_features build).
+          #
           export CMAKE_GENERATOR="Unix Makefiles"
           export CMAKE_MAKE_PROGRAM="$MAKE_BIN"
 
@@ -602,7 +602,7 @@ jobs:
 
           #
           LOG="${PWD}/build-windows.log"
-          # MinGW: autotools may add -lc/-ldl; provide aliases if missing.
+          #
           if [ ! -f /mingw64/lib/libc.a ] && [ -f /mingw64/lib/libmsvcrt.a ]; then
             cp /mingw64/lib/libmsvcrt.a /mingw64/lib/libc.a || true
           fi
@@ -620,12 +620,12 @@ jobs:
           STATUS="$?"
           set -e
 
-          # libevent on Windows may not produce libevent_pthreads.a, but upper layers can hard-link it.
-          # Always apply fixups when make fails (or log mentions libevent_pthreads.a), then rerun make once.
+          #
+          #
           if [ "${STATUS}" -ne 0 ] || grep -Fq "libevent_pthreads.a" "$LOG"; then
             echo "CODEX: detected missing libevent_pthreads.a; applying link fixups and rerunning make" >> "$LOG"
 
-            # Create a libevent_pthreads.a alias by copying libevent.a (libevent uses Windows threads on MinGW).
+            #
             LIBEVENT_A="$(find bin -path '*/libevent/.libs/libevent.a' -print -quit 2>/dev/null || true)"
             if [ -n "$LIBEVENT_A" ]; then
               LIBEVENT_DIR="${LIBEVENT_A%/libevent.a}"
@@ -637,7 +637,7 @@ jobs:
               echo "CODEX: WARN could not locate libevent.a under bin/**/libevent/.libs" >> "$LOG"
             fi
 
-            # Patch generated makefiles under bin/ to avoid hard-linking libevent_pthreads and to add Win libs.
+            #
             python - <<'PY'
             from __future__ import annotations
 
@@ -730,11 +730,11 @@ jobs:
             exit 1
           fi
 
-          # Provide both extensions for convenience.
+          #
           cp "$TS_MOD" "$DIST/redistimeseries.so"
           cp "$TS_MOD" "$DIST/redistimeseries.dll"
 
-          # Copy common runtime DLLs (ignore if missing).
+          #
           cp /mingw64/bin/libgcc_s_seh-1.dll "$DIST/" || true
           cp /mingw64/bin/libstdc++-6.dll "$DIST/" || true
           cp /mingw64/bin/libwinpthread-1.dll "$DIST/" || true
