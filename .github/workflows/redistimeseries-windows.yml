@@ -206,6 +206,54 @@ jobs:
           PY
           fi
 
+          # LibMR 的 utils/arr.h 同样依赖 MAX 宏：在 MinGW 下补齐。
+          LIBMR_ARR_H="deps/LibMR/src/utils/arr.h"
+          if [ -f "$LIBMR_ARR_H" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("deps/LibMR/src/utils/arr.h")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          if "\n#ifndef MAX\n" in text or "\n#define MAX(" in text:
+              raise SystemExit(0)
+
+          insert_after = "#include <stdbool.h>\n"
+          if insert_after not in text:
+              raise SystemExit("ERROR: cannot find include anchor in deps/LibMR/src/utils/arr.h")
+
+          patch = (
+              "#ifndef MAX\n"
+              "#define MAX(a,b) ((a) > (b) ? (a) : (b))\n"
+              "#endif\n"
+          )
+          path.write_text(text.replace(insert_after, insert_after + "\n" + patch + "\n", 1), encoding="utf-8")
+          PY
+          fi
+
+          # Windows/MinGW 下可能缺少 ushort typedef，统一补齐（仅在 Windows 生效，避免影响其它平台）。
+          CONSTS_H="src/consts.h"
+          if [ -f "$CONSTS_H" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/consts.h")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          if "typedef unsigned short ushort;" in text:
+              raise SystemExit(0)
+
+          insert_after = "#include <assert.h>\n"
+          if insert_after not in text:
+              raise SystemExit("ERROR: cannot find include anchor in src/consts.h")
+
+          patch = (
+              "#if defined(_WIN32) && !defined(__CYGWIN__)\n"
+              "typedef unsigned short ushort;\n"
+              "#endif\n"
+          )
+          path.write_text(text.replace(insert_after, insert_after + "\n" + patch + "\n", 1), encoding="utf-8")
+          PY
+          fi
+
       - name: Build RedisTimeSeries module
         working-directory: redistimeseries-src
         run: |
