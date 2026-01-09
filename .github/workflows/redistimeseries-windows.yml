@@ -137,7 +137,7 @@ jobs:
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: ä¸æ”¯?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘½?*/',
+                  '  /* Windows/MSYS2: ä¸æ”�?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘�?*/',
               )
 
           #
@@ -261,7 +261,7 @@ jobs:
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: ä¸æ”¯?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘½?*/',
+                  '  /* Windows/MSYS2: ä¸æ”�?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘�?*/',
               )
 
           path.write_text(text, encoding="utf-8")
@@ -593,6 +593,10 @@ jobs:
 
           # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
           export MYPY=python
+
+          # Force Makefiles generator; readies expects make (Ninja breaks cpu_features build).
+          export CMAKE_GENERATOR="Unix Makefiles"
+          export CMAKE_MAKE_PROGRAM="$MAKE_BIN"
 
           #
 
