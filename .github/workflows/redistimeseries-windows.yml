@@ -24,17 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve RedisTimeSeries version
-        id: vars
-        run: |
-          set -euo pipefail
-          VERSION="${{ github.event.inputs.timeseries_version }}"
-          if [ -z "${VERSION}" ]; then
-            VERSION="${DEFAULT_TIMESERIES_VERSION}"
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Using RedisTimeSeries version: ${VERSION}"
-
       - name: Setup MSYS2 (MINGW64)
         uses: msys2/setup-msys2@v2
         with:
@@ -57,6 +46,17 @@ jobs:
             tar
             curl
             p7zip
+
+      - name: Resolve RedisTimeSeries version
+        id: vars
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.timeseries_version }}"
+          if [ -z "${VERSION}" ]; then
+            VERSION="${DEFAULT_TIMESERIES_VERSION}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Using RedisTimeSeries version: ${VERSION}"
 
       - name: Ensure python3 + pip commands exist
         run: |
