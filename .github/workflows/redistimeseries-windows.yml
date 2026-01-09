@@ -34,6 +34,7 @@ jobs:
             automake
             libtool
             m4
+            jq
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-make
             make
@@ -101,6 +102,54 @@ jobs:
           if [ -f "$CC_DEFS" ]; then
             sed -i '/-Werror=incompatible-pointer-types/d' "$CC_DEFS"
             sed -i '/-Werror=implicit-function-declaration/d' "$CC_DEFS"
+          fi
+
+          # MinGW/Windows 没有 POSIX 的 strsep；rmutil 使用它解析 INFO 输出，会导致编译失败。
+          RMUTIL_UTIL_C="deps/RedisModulesSDK/rmutil/util.c"
+          if [ -f "$RMUTIL_UTIL_C" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("deps/RedisModulesSDK/rmutil/util.c")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          if "rmutil_strsep" in text:
+              raise SystemExit(0)
+
+          marker = '#include "util.h"\\n'
+          if marker not in text:
+              raise SystemExit('ERROR: cannot find marker: #include "util.h"')
+
+          patch = (
+              '#if defined(_WIN32) && !defined(__CYGWIN__)\\n'
+              '#ifndef strncasecmp\\n'
+              '#define strncasecmp _strnicmp\\n'
+              '#endif\\n\\n'
+              'static char *rmutil_strsep(char **stringp, const char *delim) {\\n'
+              '  char *start = *stringp;\\n'
+              '  char *p;\\n'
+              '  if (start == NULL) return NULL;\\n'
+              '  p = start;\\n'
+              '  while (*p) {\\n'
+              '    const char *d = delim;\\n'
+              '    while (*d) {\\n'
+              '      if (*p == *d) {\\n'
+              '        *p = \\'\\\\0\\';\\n'
+              '        *stringp = p + 1;\\n'
+              '        return start;\\n'
+              '      }\\n'
+              '      d++;\\n'
+              '    }\\n'
+              '    p++;\\n'
+              '  }\\n'
+              '  *stringp = NULL;\\n'
+              '  return start;\\n'
+              '}\\n'
+              '#define strsep rmutil_strsep\\n'
+              '#endif\\n\\n'
+          )
+
+          path.write_text(text.replace(marker, marker + patch, 1), encoding="utf-8")
+          PY
           fi
 
       - name: Build RedisTimeSeries module
