@@ -79,19 +79,19 @@ jobs:
           LIBEVENT_MK="build/libevent/Makefile"
           if [ -f "$LIBEVENT_MK" ]; then
           python - <<'PY'
-from pathlib import Path
-
-path = Path("build/libevent/Makefile")
-text = path.read_text(encoding="utf-8", errors="ignore")
-flag_line = "CONFIGURE_FLAGS.windows += --disable-samples --disable-libevent-regress --disable-openssl\n"
-marker = "include $(MK)/defs\n"
-
-if "--disable-samples" not in text:
-    if marker not in text:
-        raise SystemExit("ERROR: cannot find 'include $(MK)/defs' in build/libevent/Makefile")
-    text = text.replace(marker, flag_line + marker, 1)
-    path.write_text(text, encoding="utf-8")
-PY
+          from pathlib import Path
+          
+          path = Path("build/libevent/Makefile")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          flag_line = "CONFIGURE_FLAGS.windows += --disable-samples --disable-libevent-regress --disable-openssl\n"
+          marker = "include $(MK)/defs\n"
+          
+          if "--disable-samples" not in text:
+              if marker not in text:
+                  raise SystemExit("ERROR: cannot find 'include $(MK)/defs' in build/libevent/Makefile")
+              text = text.replace(marker, flag_line + marker, 1)
+              path.write_text(text, encoding="utf-8")
+          PY
           fi
 
           # Drop readies -Werror flags that break dependency builds on Windows/MinGW.
