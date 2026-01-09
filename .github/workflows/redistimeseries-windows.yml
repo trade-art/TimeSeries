@@ -182,6 +182,30 @@ jobs:
           PY
           fi
 
+          # MinGW 的 <sys/param.h> 可能不提供 MAX 宏，导致被当成函数调用并触发编译错误。
+          ARR_H="src/utils/arr.h"
+          if [ -f "$ARR_H" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/utils/arr.h")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          if "\n#ifndef MAX\n" in text or "\n#define MAX(" in text:
+              raise SystemExit(0)
+
+          insert_after = "#include <assert.h>\n"
+          if insert_after not in text:
+              raise SystemExit("ERROR: cannot find include anchor in src/utils/arr.h")
+
+          patch = (
+              "#ifndef MAX\n"
+              "#define MAX(a,b) ((a) > (b) ? (a) : (b))\n"
+              "#endif\n"
+          )
+          path.write_text(text.replace(insert_after, insert_after + "\n" + patch + "\n", 1), encoding="utf-8")
+          PY
+          fi
+
       - name: Build RedisTimeSeries module
         working-directory: redistimeseries-src
         run: |
