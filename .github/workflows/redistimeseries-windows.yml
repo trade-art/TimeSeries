@@ -105,7 +105,7 @@ jobs:
             sed -i '/-Werror=implicit-function-declaration/d' "$CC_DEFS"
           fi
 
-          # hiredis çš?libevent adapter åœ?Windows ä¸‹åº”ä½¿ç”�?evutil_socket_t ä½œä¸º fd ç±»åž‹ï¼Œé¿å…å›žè°ƒç­¾åä¸åŒ¹é…ã€?
+          # hiredis çš?libevent adapter åœ?Windows ä¸‹åº”ä½¿ç”?evutil_socket_t ä½œä¸º fd ç±»åž‹ï¼Œé¿å…å›žè°ƒç­¾åä¸åŒ¹é…ã€?
           HIREDIS_LIBEVENT_H="deps/LibMR/deps/hiredis/adapters/libevent.h"
           if [ -f "$HIREDIS_LIBEVENT_H" ]; then
           python - <<'PY'
@@ -124,7 +124,7 @@ jobs:
           PY
           fi
 
-          # LibMR åœ?Windows ä¸‹åº”ä½¿ç”�?libevent çš?windows threadsï¼›åŒæ—¶é¿å…è°ƒç”¨ä¸å­˜åœ¨ç�?err()ã�?
+          # LibMR åœ?Windows ä¸‹åº”ä½¿ç”?libevent çš?windows threadsï¼›åŒæ—¶é¿å…è°ƒç”¨ä¸å­˜åœ¨ç?err()ã?
           LIBMR_EVENT_LOOP_C="deps/LibMR/src/event_loop.c"
           if [ -f "$LIBMR_EVENT_LOOP_C" ]; then
           python - <<'PY'
@@ -133,14 +133,14 @@ jobs:
           path = Path("deps/LibMR/src/event_loop.c")
           text = path.read_text(encoding="utf-8", errors="ignore")
 
-          # 1) ç¦æ­¢åœ¨æœªçŸ¥å¹³å°è°ƒç�?err()ï¼ˆWindows/MSYS2 ä¼šèµ°åˆ?else åˆ†æ”¯ï¼‰ã€?
+          # 1) ç¦æ­¢åœ¨æœªçŸ¥å¹³å°è°ƒç?err()ï¼ˆWindows/MSYS2 ä¼šèµ°åˆ?else åˆ†æ”¯ï¼‰ã€?
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: ä¸æ”¯æ�?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘½å�?*/',
+                  '  /* Windows/MSYS2: ä¸æ”¯æ?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘½å?*/',
               )
 
-          # 2) Windows ä¸‹ä½¿ç�?evthread_use_windows_threadsï¼›å…¶å®ƒå¹³å°ç»§ç»­ç”�?pthreadsã�?
+          # 2) Windows ä¸‹ä½¿ç?evthread_use_windows_threadsï¼›å…¶å®ƒå¹³å°ç»§ç»­ç”?pthreadsã?
           if "evthread_use_pthreads();" in text and "evthread_use_windows_threads" not in text:
               text = text.replace(
                   "    evthread_use_pthreads();",
@@ -155,7 +155,7 @@ jobs:
           PY
           fi
 
-          # LibMR ä½¿ç”�?random() èŽ·å–éšæœºæ•°ï¼›Windows/MinGW ä¸‹ç”�?rand() æ›¿ä»£ï¼ˆè¯­ä¹‰è¶³å¤Ÿç”¨äºŽæŠ½æ ·ï¼‰ã€?
+          # LibMR ä½¿ç”?random() èŽ·å–éšæœºæ•°ï¼›Windows/MinGW ä¸‹ç”?rand() æ›¿ä»£ï¼ˆè¯­ä¹‰è¶³å¤Ÿç”¨äºŽæŠ½æ ·ï¼‰ã€?
           LIBMR_DICT_C="deps/LibMR/src/utils/dict.c"
           if [ -f "$LIBMR_DICT_C" ]; then
           python - <<'PY'
@@ -166,7 +166,7 @@ jobs:
           if "random()" not in text:
               raise SystemExit(0)
 
-          # é¿å…é‡å¤æ›¿æ�?          if "mr_random()" in text:
+          # é¿å…é‡å¤æ›¿æ?          if "mr_random()" in text:
               raise SystemExit(0)
 
           newline = "\r\n" if "\r\n" in text else "\n"
@@ -187,7 +187,7 @@ jobs:
           PY
           fi
 
-          # LibMR çº¿ç¨‹æ± ç”�?POSIX signals(SIGUSR2/sigaction) å®žçŽ° pause/resumeï¼›Windows/MinGW ä¸æ”¯æŒï¼Œç¦ç”¨è¯¥èƒ½åŠ›ã€?
+          # LibMR çº¿ç¨‹æ± ç”?POSIX signals(SIGUSR2/sigaction) å®žçŽ° pause/resumeï¼›Windows/MinGW ä¸æ”¯æŒï¼Œç¦ç”¨è¯¥èƒ½åŠ›ã€?
           LIBMR_THPOOL_C="deps/LibMR/src/utils/thpool.c"
           if [ -f "$LIBMR_THPOOL_C" ]; then
           python - <<'PY'
@@ -200,7 +200,7 @@ jobs:
 
           newline = "\r\n" if "\r\n" in text else "\n"
 
-          # 1) mr_thpool_pause: Windows ä¸‹ç¦ç�?SIGUSR2ï¼ˆç”¨é¢„å¤„ç†å‰”é™¤ï¼‰ï¼Œé�?Windows ç»´æŒåŽŸé€»è¾�?          sig = "void mr_thpool_pause(mr_thpool_* thpool_p)"
+          # 1) mr_thpool_pause: Windows ä¸‹ç¦ç?SIGUSR2ï¼ˆç”¨é¢„å¤„ç†å‰”é™¤ï¼‰ï¼Œé?Windows ç»´æŒåŽŸé€»è¾?          sig = "void mr_thpool_pause(mr_thpool_* thpool_p)"
           start = text.find(sig)
           if start != -1:
               brace = text.find("{", start)
@@ -234,19 +234,19 @@ jobs:
                   )
                   text = text[:start] + replacement + text[end + 1 :]
 
-          # 2) thread_do é‡Œçš�?signal handler æ³¨å†Œå�?Windows ä¸‹è·³è�?
+          # 2) thread_do é‡Œçš?signal handler æ³¨å†Œå?Windows ä¸‹è·³è?
           marker = "  /* Register signal handler */"
           if marker in text:
               idx = text.find(marker)
               if idx != -1:
-                  # åœ?marker å‰æ’å�?Windows guardï¼Œmarker åŽè¿½åŠ?#endifï¼ˆç®€å•å®šä½ï¼šå�?sigaction(...) å—åŽï�?
+                  # åœ?marker å‰æ’å?Windows guardï¼Œmarker åŽè¿½åŠ?#endifï¼ˆç®€å•å®šä½ï¼šå?sigaction(...) å—åŽï?
                   if "#if defined(_WIN32) && !defined(__CYGWIN__)" not in text[idx-200:idx+200]:
                       text = text.replace(
                           marker,
                           "#if !defined(_WIN32) || defined(__CYGWIN__)" + newline + marker,
                           1,
                       )
-                  # åœ¨ç¬¬ä¸€æ¬¡å‡ºç�?"  /* Mark thread as alive" å‰æ’å�?#endif
+                  # åœ¨ç¬¬ä¸€æ¬¡å‡ºç?"  /* Mark thread as alive" å‰æ’å?#endif
                   alive_marker = "  /* Mark thread as alive (initialized) */"
                   if alive_marker in text and "#endif" not in text[text.find(marker):text.find(alive_marker)]:
                       text = text.replace(
@@ -255,17 +255,17 @@ jobs:
                           1,
                       )
 
-          # 3) åŽ»æŽ�?thread name çš?err()ï¼ˆå’�?event_loop.c ä¸€æ ·ï¼�?          if 'err("thread_do()' in text:
+          # 3) åŽ»æŽ?thread name çš?err()ï¼ˆå’?event_loop.c ä¸€æ ·ï¼?          if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: ä¸æ”¯æ�?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘½å�?*/',
+                  '  /* Windows/MSYS2: ä¸æ”¯æ?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘½å?*/',
               )
 
           path.write_text(text, encoding="utf-8")
           PY
           fi
 
-          # MinGW/Windows æ²¡æœ�?POSIX çš?strsepï¼›rmutil ä½¿ç”¨å®ƒè§£æ�?INFO è¾“å‡ºï¼Œä¼šå¯¼è‡´ç¼–è¯‘å¤±è´¥ã€?
+          # MinGW/Windows æ²¡æœ?POSIX çš?strsepï¼›rmutil ä½¿ç”¨å®ƒè§£æ?INFO è¾“å‡ºï¼Œä¼šå¯¼è‡´ç¼–è¯‘å¤±è´¥ã€?
           RMUTIL_UTIL_C="deps/RedisModulesSDK/rmutil/util.c"
           if [ -f "$RMUTIL_UTIL_C" ]; then
           python - <<'PY'
@@ -316,7 +316,7 @@ jobs:
           PY
           fi
 
-          # CMake 4.x ç§»é™¤äº†å¯�?<3.5 çš„å…¼å®¹ï¼šcpu_features ä¸Žå…�?googletest ä¸‹è½½è„šæœ¬éœ€è¦æå‡æœ€ä½Žç‰ˆæœ¬ã€?
+          # CMake 4.x ç§»é™¤äº†å¯?<3.5 çš„å…¼å®¹ï¼šcpu_features ä¸Žå…?googletest ä¸‹è½½è„šæœ¬éœ€è¦æå‡æœ€ä½Žç‰ˆæœ¬ã€?
           CPU_FEATURES_CMAKE="deps/cpu_features/CMakeLists.txt"
           if [ -f "$CPU_FEATURES_CMAKE" ]; then
           python - <<'PY'
@@ -343,7 +343,7 @@ jobs:
           PY
           fi
 
-          # MinGW çš?<sys/param.h> å¯èƒ½ä¸æä¾?MAX å®ï¼Œå¯¼è‡´è¢«å½“æˆå‡½æ•°è°ƒç”¨å¹¶è§¦å‘ç¼–è¯‘é”™è¯¯ã�?
+          # MinGW çš?<sys/param.h> å¯èƒ½ä¸æä¾?MAX å®ï¼Œå¯¼è‡´è¢«å½“æˆå‡½æ•°è°ƒç”¨å¹¶è§¦å‘ç¼–è¯‘é”™è¯¯ã?
           ARR_H="src/utils/arr.h"
           if [ -f "$ARR_H" ]; then
           python - <<'PY'
@@ -374,7 +374,7 @@ jobs:
           PY
           fi
 
-          # LibMR çš?utils/arr.h åŒæ ·ä¾èµ�?MAX å®ï¼šåœ?MinGW ä¸‹è¡¥é½ã€?
+          # LibMR çš?utils/arr.h åŒæ ·ä¾èµ?MAX å®ï¼šåœ?MinGW ä¸‹è¡¥é½ã€?
           LIBMR_ARR_H="deps/LibMR/src/utils/arr.h"
           if [ -f "$LIBMR_ARR_H" ]; then
           python - <<'PY'
@@ -405,7 +405,7 @@ jobs:
           PY
           fi
 
-          # Windows/MinGW ä¸‹å¯èƒ½ç¼ºå�?ushort typedefï¼Œç»Ÿä¸€è¡¥é½ï¼ˆä»…å�?Windows ç”Ÿæ•ˆï¼Œé¿å…å½±å“å…¶å®ƒå¹³å°ï¼‰ã€?
+          # Windows/MinGW ä¸‹å¯èƒ½ç¼ºå?ushort typedefï¼Œç»Ÿä¸€è¡¥é½ï¼ˆä»…å?Windows ç”Ÿæ•ˆï¼Œé¿å…å½±å“å…¶å®ƒå¹³å°ï¼‰ã€?
           CONSTS_H="src/consts.h"
           if [ -f "$CONSTS_H" ]; then
           python - <<'PY'
@@ -486,7 +486,7 @@ jobs:
                   and not stripped.startswith("/*")
                   and not stripped.startswith("*")
               ):
-                  # åªå¤„ç†è¯­å¥çº§ç”¨æ³•ï¼ˆä»�?';' ç»“æŸï¼‰ã€‚é‡å�?switch/case æ—¶åªåšæœ€å°åŒ…è£¹ï¼Œé¿å…è¯¯ä¼¤ã€?
+                  # åªå¤„ç†è¯­å¥çº§ç”¨æ³•ï¼ˆä»?';' ç»“æŸï¼‰ã€‚é‡å?switch/case æ—¶åªåšæœ€å°åŒ…è£¹ï¼Œé¿å…è¯¯ä¼¤ã€?
                   if stripped.startswith("case ") and ":" in line:
                       out.append(f"#if !defined(_WIN32) || defined(__CYGWIN__) /* CODEX_SIGUSR2_GUARD_BEGIN */{nl}")
                       out.append(line)
@@ -525,17 +525,17 @@ jobs:
           original = path.read_text(encoding="utf-8", errors="ignore")
           text = original
 
-          # 1) Windows ä¸?libevent é€šå¸¸ä¸ä¼šç”Ÿæˆ�?libevent_pthreads.aï¼›ä¸Šå�?Makefile è‹¥ç¡¬ç¼–ç å®ƒä¼šå¯¼è‡´é“¾æŽ¥å¤±è´¥ã€?          #    ç›´æŽ¥æ”¹ä¸ºé“¾æŽ�?libevent.aï¼ˆåŒç›®å½•ä¸‹çš�?.libs/libevent.aï¼‰ã€?
+          # 1) Windows ä¸?libevent é€šå¸¸ä¸ä¼šç”Ÿæˆ?libevent_pthreads.aï¼›ä¸Šå?Makefile è‹¥ç¡¬ç¼–ç å®ƒä¼šå¯¼è‡´é“¾æŽ¥å¤±è´¥ã€?          #    ç›´æŽ¥æ”¹ä¸ºé“¾æŽ?libevent.aï¼ˆåŒç›®å½•ä¸‹çš?.libs/libevent.aï¼‰ã€?
           text = text.replace("libevent_pthreads.a", "libevent.a")
-          # ä¸€äº›è§„åˆ™ä¼šç�?$(LIBEXT)/${LIBEXT} æ‹¼æŽ¥åŽç¼€ï¼Œä¹Ÿéœ€è¦ä¸€å¹¶ä¿®æ­?
+          # ä¸€äº›è§„åˆ™ä¼šç?$(LIBEXT)/${LIBEXT} æ‹¼æŽ¥åŽç¼€ï¼Œä¹Ÿéœ€è¦ä¸€å¹¶ä¿®æ­?
           text = text.replace("libevent_pthreads.$(LIBEXT)", "libevent.$(LIBEXT)")
           text = text.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
-          # æ›´ä¿å®ˆä½†æ›´ç¨³ï¼šæŠ�?Makefile å†…çš�?libevent_pthreads ç»Ÿç»Ÿæ”¹ä¸�?libeventï¼ˆWindows ä¸Šèµ° win32 threadsï¼?
+          # æ›´ä¿å®ˆä½†æ›´ç¨³ï¼šæŠ?Makefile å†…çš?libevent_pthreads ç»Ÿç»Ÿæ”¹ä¸?libeventï¼ˆWindows ä¸Šèµ° win32 threadsï¼?
           text = text.replace("libevent_pthreads", "libevent")
 
-          # 2) ä¿®è¡¥ redistimeseries.so çš„é“¾æŽ¥å‘½ä»¤ï¼šç¡®ä¿æ˜¯å…±äº«åº�?-shared) + è¡¥é½ winsock/iphlpapi ä¾èµ–åº“ã€?
+          # 2) ä¿®è¡¥ redistimeseries.so çš„é“¾æŽ¥å‘½ä»¤ï¼šç¡®ä¿æ˜¯å…±äº«åº?-shared) + è¡¥é½ winsock/iphlpapi ä¾èµ–åº“ã€?
           lines = text.splitlines(True)
-          # åŒ¹é…ç›®æ ‡è¡Œï¼�?..redistimeseries.so: ...
+          # åŒ¹é…ç›®æ ‡è¡Œï¼?..redistimeseries.so: ...
           target_re = re.compile(r"^[^#\n]*redistimeseries\.so\s*:\s*.*$")
 
           def patch_link_line(line: str) -> str:
@@ -544,11 +544,11 @@ jobs:
 
               patched = line
 
-              # é¿å…è¢«å½“ä�?exe é“¾æŽ¥ï¼ˆå¦åˆ™ä¼šå‡ºçŽ�?WinMainï¼?
+              # é¿å…è¢«å½“ä?exe é“¾æŽ¥ï¼ˆå¦åˆ™ä¼šå‡ºçŽ?WinMainï¼?
               if "redistimeseries.so" in patched and "-o" in patched and "-shared" not in patched:
                   patched = patched.replace("-o", "-shared -o", 1)
 
-              # è¡¥é½ Windows socket/ç½‘ç»œä¾èµ–ï¼šhiredis/libevent éƒ½ä¼šç”¨åˆ�?              if ("redistimeseries.so" in patched or "hiredis" in patched or "libevent" in patched) and "-lws2_32" not in patched:
+              # è¡¥é½ Windows socket/ç½‘ç»œä¾èµ–ï¼šhiredis/libevent éƒ½ä¼šç”¨åˆ?              if ("redistimeseries.so" in patched or "hiredis" in patched or "libevent" in patched) and "-lws2_32" not in patched:
                   extra = " -lws2_32 -liphlpapi -ladvapi32 -lshell32"
                   if patched.rstrip().endswith("\\"):
                       patched = patched.rstrip()[:-1] + extra + " \\\n"
@@ -560,7 +560,7 @@ jobs:
           i = 0
           while i < len(lines):
               if target_re.match(lines[i]):
-                  # recipe é€šå¸¸æ˜¯æŽ¥ä¸‹æ¥ä�?TAB å¼€å¤´çš„å¤šè¡Œï¼›ç›´åˆ°ä¸‹ä¸€ä¸ªâ€œè§„åˆ™è¡Œâ€æˆ–æ–‡ä»¶ç»“æŸã€?
+                  # recipe é€šå¸¸æ˜¯æŽ¥ä¸‹æ¥ä?TAB å¼€å¤´çš„å¤šè¡Œï¼›ç›´åˆ°ä¸‹ä¸€ä¸ªâ€œè§„åˆ™è¡Œâ€æˆ–æ–‡ä»¶ç»“æŸã€?
                   j = i + 1
                   while j < len(lines):
                       if lines[j].startswith("\t"):
@@ -590,9 +590,9 @@ jobs:
           # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
           export MYPY=python
 
-          # CMake 4.x é»˜è®¤æ›´å€¾å�?Ninjaï¼›è€?readies çš?cmake.rules æœŸæœ›ç”Ÿæˆ�?Makefile å¹¶ç”�?make æž„å»ºã€?          export CMAKE_GENERATOR="Unix Makefiles"
+          # CMake 4.x é»˜è®¤æ›´å€¾å?Ninjaï¼›è€?readies çš?cmake.rules æœŸæœ›ç”Ÿæˆ?Makefile å¹¶ç”?make æž„å»ºã€?          export CMAKE_GENERATOR="Unix Makefiles"
 
-          # ä»…éœ€æž„å»�?libevent åº“ï¼šç¦ç”�?samples / regress / opensslï¼Œé¿å�?MinGW ä¸‹æ ·ä¾‹ä¸Žå›žå½’æµ‹è¯•ç¼–è¯‘å¤±è´¥ã€?          # åŒæ—¶ä¸ºäº†ä¾¿äºŽå®šä½�?make è¿”å›�?2 çš„åŽŸå› ï¼ŒæŠŠå®Œæ•´è¾“å‡ºä¿å­˜åˆ°æ–‡ä»¶å¹¶åœ¨å¤±è´¥æ—¶æ‰“å°å°¾éƒ¨ã€?
+          # ä»…éœ€æž„å»?libevent åº“ï¼šç¦ç”?samples / regress / opensslï¼Œé¿å?MinGW ä¸‹æ ·ä¾‹ä¸Žå›žå½’æµ‹è¯•ç¼–è¯‘å¤±è´¥ã€?          # åŒæ—¶ä¸ºäº†ä¾¿äºŽå®šä½?make è¿”å›?2 çš„åŽŸå› ï¼ŒæŠŠå®Œæ•´è¾“å‡ºä¿å­˜åˆ°æ–‡ä»¶å¹¶åœ¨å¤±è´¥æ—¶æ‰“å°å°¾éƒ¨ã€?
           LOG="${PWD}/build-windows.log"
           # MinGW: autotools may add -lc/-ldl; provide aliases if missing.
           if [ ! -f /mingw64/lib/libc.a ] && [ -f /mingw64/lib/libmsvcrt.a ]; then
@@ -655,7 +655,7 @@ jobs:
                 new = new.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
                 new = new.replace("libevent_pthreads", "libevent")
 
-                # ç¡®ä¿å˜é‡é‡ŒåŒ…å�?winsock ç›¸å…³åº“ï¼ˆå³ä¾¿é“¾æŽ¥å‘½ä»¤ä¸æ˜¾å¼å‡ºç�?libevent/hiredis å­—æ ·ä¹Ÿèƒ½ç”Ÿæ•ˆï�?
+                # ç¡®ä¿å˜é‡é‡ŒåŒ…å?winsock ç›¸å…³åº“ï¼ˆå³ä¾¿é“¾æŽ¥å‘½ä»¤ä¸æ˜¾å¼å‡ºç?libevent/hiredis å­—æ ·ä¹Ÿèƒ½ç”Ÿæ•ˆï?
                 if "-lws2_32" not in new:
                     out_lines = []
                     for line in new.splitlines(True):
@@ -666,7 +666,7 @@ jobs:
                         out_lines.append(line)
                     new = "".join(out_lines)
 
-                # é˜²æ­¢è¢«å½“ä�?exe é“¾æŽ¥å¯¼è‡�?WinMainï¼šä¼˜å…ˆä»Žå˜é‡å±‚é¢è�?-shared
+                # é˜²æ­¢è¢«å½“ä?exe é“¾æŽ¥å¯¼è‡?WinMainï¼šä¼˜å…ˆä»Žå˜é‡å±‚é¢è?-shared
                 if "redistimeseries.so" in new and "-shared" not in new:
                     out_lines = []
                     injected = False
