@@ -536,10 +536,8 @@ jobs:
           lines = text.splitlines(True)
           # 匹配目标行：...redistimeseries.so: ...
           target_re = re.compile(r"^[^#\\n]*redistimeseries\\.so\\s*:\\s*.*$")
-          changed = False
 
           def patch_link_line(line: str) -> str:
-              nonlocal changed
               if line.lstrip().startswith(("@echo", "echo ")):
                   return line
 
@@ -557,8 +555,6 @@ jobs:
                   else:
                       patched = patched.rstrip("\n") + extra + "\n"
 
-              if patched != line:
-                  changed = True
               return patched
 
           i = 0
