@@ -74,18 +74,20 @@ jobs:
             sed -i 's/self\.os_full_ver = os\.version()/self.os_full_ver = platform.version()/' "$PAELLA_PLATFORM" || true
           fi
 
+          # Avoid building full "all" targets for autotools deps: build only the requested library target.
+          # This prevents libevent tests/samples from being compiled on Windows.
+          CONFIGURE_RULES="deps/readies/mk/configure.rules"
+          if [ -f "$CONFIGURE_RULES" ]; then
+            grep -q "CONFIGURE_BUILD_TARGET" "$CONFIGURE_RULES" || \
+              sed -i '1i\\\nCONFIGURE_BUILD_TARGET ?= $(if $(filter $(CONFIGURE_BUILD_DIR)/%,$(CONFIGURE_TARGET)),$(patsubst $(CONFIGURE_BUILD_DIR)/%,%,$(CONFIGURE_TARGET)),)\n' "$CONFIGURE_RULES"
+            sed -i 's/make -C \\$(CONFIGURE_BUILD_DIR) -j \\$(NPROC)\\s*$/make -C $(CONFIGURE_BUILD_DIR) -j $(NPROC) $(CONFIGURE_BUILD_TARGET)/' "$CONFIGURE_RULES" || true
+          fi
+
           # Drop readies -Werror flags that break dependency builds on Windows/MinGW (e.g. libevent samples).
           CC_DEFS="deps/readies/mk/cc.defs"
           if [ -f "$CC_DEFS" ]; then
             sed -i '/-Werror=incompatible-pointer-types/d' "$CC_DEFS"
             sed -i '/-Werror=implicit-function-declaration/d' "$CC_DEFS"
-          fi
-
-          # Patch libevent sample callback signature for Windows (evutil_socket_t is intptr_t, not int).
-          LIBEVENT_HTTP_SERVER="deps/LibMR/deps/libevent/sample/http-server.c"
-          if [ -f "$LIBEVENT_HTTP_SERVER" ]; then
-            sed -i 's/do_term(int sig, short events/do_term(evutil_socket_t sig, short events/' "$LIBEVENT_HTTP_SERVER" || true
-            sed -i 's/static void do_term(int sig, short events/static void do_term(evutil_socket_t sig, short events/' "$LIBEVENT_HTTP_SERVER" || true
           fi
 
       - name: Build RedisTimeSeries module
@@ -98,7 +100,6 @@ jobs:
 
           # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
           export MYPY=python
-          export CFLAGS="${CFLAGS:-} -Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration"
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS"
 
       - name: Package artifact
