@@ -187,6 +187,63 @@ jobs:
           PY
           fi
 
+          # LibMR 线程池用 POSIX signals(SIGUSR2/sigaction) 实现 pause/resume；Windows/MinGW 不支持，禁用该能力。
+          LIBMR_THPOOL_C="deps/LibMR/src/utils/thpool.c"
+          if [ -f "$LIBMR_THPOOL_C" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("deps/LibMR/src/utils/thpool.c")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          if "SIGUSR2" not in text and "sigaction" not in text:
+              raise SystemExit(0)
+
+          newline = "\r\n" if "\r\n" in text else "\n"
+
+          # 1) mr_thpool_pause 在 Windows 下直接返回
+          if "#if defined(_WIN32)" not in text and "mr_thpool_pause" in text:
+              text = text.replace(
+                  "void mr_thpool_pause(mr_thpool_* thpool_p) {",
+                  "void mr_thpool_pause(mr_thpool_* thpool_p) {" + newline +
+                  "#if defined(_WIN32) && !defined(__CYGWIN__)" + newline +
+                  "  (void)thpool_p;" + newline +
+                  "  return;" + newline +
+                  "#endif",
+                  1
+              )
+
+          # 2) thread_do 里的 signal handler 注册在 Windows 下跳过
+          marker = "  /* Register signal handler */"
+          if marker in text:
+              idx = text.find(marker)
+              if idx != -1:
+                  # 在 marker 前插入 Windows guard，marker 后追加 #endif（简单定位：在 sigaction(...) 块后）
+                  if "#if defined(_WIN32) && !defined(__CYGWIN__)" not in text[idx-200:idx+200]:
+                      text = text.replace(
+                          marker,
+                          "#if !defined(_WIN32) || defined(__CYGWIN__)" + newline + marker,
+                          1,
+                      )
+                  # 在第一次出现 "  /* Mark thread as alive" 前插入 #endif
+                  alive_marker = "  /* Mark thread as alive (initialized) */"
+                  if alive_marker in text and "#endif" not in text[text.find(marker):text.find(alive_marker)]:
+                      text = text.replace(
+                          alive_marker,
+                          "#endif" + newline + newline + alive_marker,
+                          1,
+                      )
+
+          # 3) 去掉 thread name 的 err()（和 event_loop.c 一样）
+          if 'err("thread_do()' in text:
+              text = text.replace(
+                  '  err("thread_do(): pthread_setname_np is not supported on this system");',
+                  '  /* Windows/MSYS2: 不支持 pthread_setname_np/prctl，跳过线程命名 */',
+              )
+
+          path.write_text(text, encoding="utf-8")
+          PY
+          fi
+
           # MinGW/Windows 没有 POSIX 的 strsep；rmutil 使用它解析 INFO 输出，会导致编译失败。
           RMUTIL_UTIL_C="deps/RedisModulesSDK/rmutil/util.c"
           if [ -f "$RMUTIL_UTIL_C" ]; then
