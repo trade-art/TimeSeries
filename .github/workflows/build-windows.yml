@@ -11,7 +11,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
     defaults:
       run:
         shell: msys2 {0}
@@ -43,7 +42,7 @@ jobs:
             curl
             p7zip
 
-      - name: Ensure python3 command exists
+      - name: Ensure python3 + pip commands exist
         run: |
           set -euo pipefail
           if ! command -v python3 >/dev/null 2>&1; then
@@ -64,15 +63,22 @@ jobs:
           echo "Cloning redistimeseries ${{ inputs.timeseries_version }}"
           git clone --recursive --depth 1 --branch "${{ inputs.timeseries_version }}" https://github.com/redistimeseries/redistimeseries.git redistimeseries-src
 
-      - name: Patch readies platform for Windows python
+      - name: Patch readies for Windows (python + Werror)
         working-directory: redistimeseries-src
         run: |
           set -euo pipefail
-          # deps/readies/paella/platform.py calls os.version() on Windows, but Python's os has no version().
-          # That makes deps/readies/bin/platform fail with "platform: cannot identify" and breaks the build.
+
+          # Fix readies platform detection on Windows: os.version() does not exist in Python.
           PAELLA_PLATFORM="deps/readies/paella/platform.py"
           if [ -f "$PAELLA_PLATFORM" ]; then
             sed -i 's/self\.os_full_ver = os\.version()/self.os_full_ver = platform.version()/' "$PAELLA_PLATFORM" || true
+          fi
+
+          # Drop readies -Werror flags that break dependency builds on Windows/MinGW (e.g. libevent samples).
+          CC_DEFS="deps/readies/mk/cc.defs"
+          if [ -f "$CC_DEFS" ]; then
+            sed -i '/-Werror=incompatible-pointer-types/d' "$CC_DEFS"
+            sed -i '/-Werror=implicit-function-declaration/d' "$CC_DEFS"
           fi
 
       - name: Build RedisTimeSeries module
@@ -82,11 +88,9 @@ jobs:
           JOBS="$(python -c 'import os; print(os.cpu_count() or 1)')"
           MAKE_BIN=make
           command -v "$MAKE_BIN" >/dev/null 2>&1 || MAKE_BIN=mingw32-make
-          # readies/bin/getpy3 在 CHECK=1 时会要求 python3 + pip；在 Windows/MSYS2 上用 MYPY 强制指定解释器更稳定。
-          # 同时禁用 libevent samples/benchmarks，避免 sample 代码在 Windows 下触发 -Werror=incompatible-pointer-types。
-          MYPY=python \
-          CONFIGURE_FLAGS="--disable-samples --disable-benchmarks" \
-          CC_C_FLAGS.warnings="-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration" \
+
+          # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
+          export MYPY=python
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS"
 
       - name: Package artifact
@@ -140,3 +144,4 @@ jobs:
           name: redistimeseries-windows
           path: dist/*.zip
           retention-days: 14
+
