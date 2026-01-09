@@ -105,7 +105,7 @@ jobs:
             sed -i '/-Werror=implicit-function-declaration/d' "$CC_DEFS"
           fi
 
-          # hiredis 的 libevent adapter 在 Windows 下应使用 evutil_socket_t 作为 fd 类型，避免回调签名不匹配。
+          # hiredis �?libevent adapter �?Windows 下应使用 evutil_socket_t 作为 fd 类型，避免回调签名不匹配�?
           HIREDIS_LIBEVENT_H="deps/LibMR/deps/hiredis/adapters/libevent.h"
           if [ -f "$HIREDIS_LIBEVENT_H" ]; then
           python - <<'PY'
@@ -124,7 +124,7 @@ jobs:
           PY
           fi
 
-          # LibMR 在 Windows 下应使用 libevent 的 windows threads；同时避免调用不存在的 err()。
+          # LibMR �?Windows 下应使用 libevent �?windows threads；同时避免调用不存在�?err()�?
           LIBMR_EVENT_LOOP_C="deps/LibMR/src/event_loop.c"
           if [ -f "$LIBMR_EVENT_LOOP_C" ]; then
           python - <<'PY'
@@ -133,14 +133,14 @@ jobs:
           path = Path("deps/LibMR/src/event_loop.c")
           text = path.read_text(encoding="utf-8", errors="ignore")
 
-          # 1) 禁止在未知平台调用 err()（Windows/MSYS2 会走到 else 分支）。
+          # 1) 禁止在未知平台调�?err()（Windows/MSYS2 会走�?else 分支）�?
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: 不支持 pthread_setname_np/prctl，跳过线程命名 */',
+                  '  /* Windows/MSYS2: 不支�?pthread_setname_np/prctl，跳过线程命�?*/',
               )
 
-          # 2) Windows 下使用 evthread_use_windows_threads；其它平台继续用 pthreads。
+          # 2) Windows 下使�?evthread_use_windows_threads；其它平台继续用 pthreads�?
           if "evthread_use_pthreads();" in text and "evthread_use_windows_threads" not in text:
               text = text.replace(
                   "    evthread_use_pthreads();",
@@ -155,7 +155,7 @@ jobs:
           PY
           fi
 
-          # LibMR 使用 random() 获取随机数；Windows/MinGW 下用 rand() 替代（语义足够用于抽样）。
+          # LibMR 使用 random() 获取随机数；Windows/MinGW 下用 rand() 替代（语义足够用于抽样）�?
           LIBMR_DICT_C="deps/LibMR/src/utils/dict.c"
           if [ -f "$LIBMR_DICT_C" ]; then
           python - <<'PY'
@@ -188,7 +188,7 @@ jobs:
           PY
           fi
 
-          # LibMR 线程池用 POSIX signals(SIGUSR2/sigaction) 实现 pause/resume；Windows/MinGW 不支持，禁用该能力。
+          # LibMR 线程池用 POSIX signals(SIGUSR2/sigaction) 实现 pause/resume；Windows/MinGW 不支持，禁用该能力�?
           LIBMR_THPOOL_C="deps/LibMR/src/utils/thpool.c"
           if [ -f "$LIBMR_THPOOL_C" ]; then
           python - <<'PY'
@@ -201,7 +201,7 @@ jobs:
 
           newline = "\r\n" if "\r\n" in text else "\n"
 
-          # 1) mr_thpool_pause: Windows 下禁用 SIGUSR2（用预处理剔除），非 Windows 维持原逻辑
+          # 1) mr_thpool_pause: Windows 下禁�?SIGUSR2（用预处理剔除），非 Windows 维持原逻辑
           sig = "void mr_thpool_pause(mr_thpool_* thpool_p)"
           start = text.find(sig)
           if start != -1:
@@ -236,19 +236,19 @@ jobs:
                   )
                   text = text[:start] + replacement + text[end + 1 :]
 
-          # 2) thread_do 里的 signal handler 注册在 Windows 下跳过
+          # 2) thread_do 里的 signal handler 注册�?Windows 下跳�?
           marker = "  /* Register signal handler */"
           if marker in text:
               idx = text.find(marker)
               if idx != -1:
-                  # 在 marker 前插入 Windows guard，marker 后追加 #endif（简单定位：在 sigaction(...) 块后）
+                  # �?marker 前插�?Windows guard，marker 后追�?#endif（简单定位：�?sigaction(...) 块后�?
                   if "#if defined(_WIN32) && !defined(__CYGWIN__)" not in text[idx-200:idx+200]:
                       text = text.replace(
                           marker,
                           "#if !defined(_WIN32) || defined(__CYGWIN__)" + newline + marker,
                           1,
                       )
-                  # 在第一次出现 "  /* Mark thread as alive" 前插入 #endif
+                  # 在第一次出�?"  /* Mark thread as alive" 前插�?#endif
                   alive_marker = "  /* Mark thread as alive (initialized) */"
                   if alive_marker in text and "#endif" not in text[text.find(marker):text.find(alive_marker)]:
                       text = text.replace(
@@ -257,18 +257,18 @@ jobs:
                           1,
                       )
 
-          # 3) 去掉 thread name 的 err()（和 event_loop.c 一样）
+          # 3) 去掉 thread name �?err()（和 event_loop.c 一样）
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: 不支持 pthread_setname_np/prctl，跳过线程命名 */',
+                  '  /* Windows/MSYS2: 不支�?pthread_setname_np/prctl，跳过线程命�?*/',
               )
 
           path.write_text(text, encoding="utf-8")
           PY
           fi
 
-          # MinGW/Windows 没有 POSIX 的 strsep；rmutil 使用它解析 INFO 输出，会导致编译失败。
+          # MinGW/Windows 没有 POSIX �?strsep；rmutil 使用它解�?INFO 输出，会导致编译失败�?
           RMUTIL_UTIL_C="deps/RedisModulesSDK/rmutil/util.c"
           if [ -f "$RMUTIL_UTIL_C" ]; then
           python - <<'PY'
@@ -319,7 +319,7 @@ jobs:
           PY
           fi
 
-          # CMake 4.x 移除了对 <3.5 的兼容：cpu_features 与其 googletest 下载脚本需要提升最低版本。
+          # CMake 4.x 移除了对 <3.5 的兼容：cpu_features 与其 googletest 下载脚本需要提升最低版本�?
           CPU_FEATURES_CMAKE="deps/cpu_features/CMakeLists.txt"
           if [ -f "$CPU_FEATURES_CMAKE" ]; then
           python - <<'PY'
@@ -346,7 +346,7 @@ jobs:
           PY
           fi
 
-          # MinGW 的 <sys/param.h> 可能不提供 MAX 宏，导致被当成函数调用并触发编译错误。
+          # MinGW �?<sys/param.h> 可能不提�?MAX 宏，导致被当成函数调用并触发编译错误�?
           ARR_H="src/utils/arr.h"
           if [ -f "$ARR_H" ]; then
           python - <<'PY'
@@ -377,7 +377,7 @@ jobs:
           PY
           fi
 
-          # LibMR 的 utils/arr.h 同样依赖 MAX 宏：在 MinGW 下补齐。
+          # LibMR �?utils/arr.h 同样依赖 MAX 宏：�?MinGW 下补齐�?
           LIBMR_ARR_H="deps/LibMR/src/utils/arr.h"
           if [ -f "$LIBMR_ARR_H" ]; then
           python - <<'PY'
@@ -408,7 +408,7 @@ jobs:
           PY
           fi
 
-          # Windows/MinGW 下可能缺少 ushort typedef，统一补齐（仅在 Windows 生效，避免影响其它平台）。
+          # Windows/MinGW 下可能缺�?ushort typedef，统一补齐（仅�?Windows 生效，避免影响其它平台）�?
           CONSTS_H="src/consts.h"
           if [ -f "$CONSTS_H" ]; then
           python - <<'PY'
@@ -489,7 +489,7 @@ jobs:
                   and not stripped.startswith("/*")
                   and not stripped.startswith("*")
               ):
-                  # 只处理语句级用法（以 ';' 结束）。遇到 switch/case 时只做最小包裹，避免误伤。
+                  # 只处理语句级用法（以 ';' 结束）。遇�?switch/case 时只做最小包裹，避免误伤�?
                   if stripped.startswith("case ") and ":" in line:
                       out.append(f"#if !defined(_WIN32) || defined(__CYGWIN__) /* CODEX_SIGUSR2_GUARD_BEGIN */{nl}")
                       out.append(line)
@@ -528,16 +528,15 @@ jobs:
           original = path.read_text(encoding="utf-8", errors="ignore")
           text = original
 
-          # 1) Windows 下 libevent 通常不会生成 libevent_pthreads.a；上层 Makefile 若硬编码它会导致链接失败。
-          #    直接改为链接 libevent.a（同目录下的 .libs/libevent.a）。
+          # 1) Windows �?libevent 通常不会生成 libevent_pthreads.a；上�?Makefile 若硬编码它会导致链接失败�?          #    直接改为链接 libevent.a（同目录下的 .libs/libevent.a）�?
           text = text.replace("libevent_pthreads.a", "libevent.a")
-          # 一些规则会用 $(LIBEXT)/${LIBEXT} 拼接后缀，也需要一并修正
+          # 一些规则会�?$(LIBEXT)/${LIBEXT} 拼接后缀，也需要一并修�?
           text = text.replace("libevent_pthreads.$(LIBEXT)", "libevent.$(LIBEXT)")
           text = text.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
-          # 更保守但更稳：把 Makefile 内的 libevent_pthreads 统统改为 libevent（Windows 上走 win32 threads）
+          # 更保守但更稳：把 Makefile 内的 libevent_pthreads 统统改为 libevent（Windows 上走 win32 threads�?
           text = text.replace("libevent_pthreads", "libevent")
 
-          # 2) 修补 redistimeseries.so 的链接命令：确保是共享库(-shared) + 补齐 winsock/iphlpapi 依赖库。
+          # 2) 修补 redistimeseries.so 的链接命令：确保是共享库(-shared) + 补齐 winsock/iphlpapi 依赖库�?
           lines = text.splitlines(True)
           # 匹配目标行：...redistimeseries.so: ...
           target_re = re.compile(r"^[^#\n]*redistimeseries\.so\s*:\s*.*$")
@@ -548,7 +547,7 @@ jobs:
 
               patched = line
 
-              # 避免被当作 exe 链接（否则会出现 WinMain）
+              # 避免被当�?exe 链接（否则会出现 WinMain�?
               if "redistimeseries.so" in patched and "-o" in patched and "-shared" not in patched:
                   patched = patched.replace("-o", "-shared -o", 1)
 
@@ -565,7 +564,7 @@ jobs:
           i = 0
           while i < len(lines):
               if target_re.match(lines[i]):
-                  # recipe 通常是接下来以 TAB 开头的多行；直到下一个“规则行”或文件结束。
+                  # recipe 通常是接下来�?TAB 开头的多行；直到下一个“规则行”或文件结束�?
                   j = i + 1
                   while j < len(lines):
                       if lines[j].startswith("\t"):
@@ -595,11 +594,9 @@ jobs:
           # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
           export MYPY=python
 
-          # CMake 4.x 默认更倾向 Ninja；而 readies 的 cmake.rules 期望生成 Makefile 并用 make 构建。
-          export CMAKE_GENERATOR="Unix Makefiles"
+          # CMake 4.x 默认更倾向 Ninja；�?readies �?cmake.rules 期望生成 Makefile 并用 make 构建�?          export CMAKE_GENERATOR="Unix Makefiles"
 
-          # 仅需构建 libevent 库：禁用 samples / regress / openssl，避免 MinGW 下样例与回归测试编译失败。
-          # 同时为了便于定位 make 返回 2 的原因，把完整输出保存到文件并在失败时打印尾部。
+          # 仅需构建 libevent 库：禁用 samples / regress / openssl，避�?MinGW 下样例与回归测试编译失败�?          # 同时为了便于定位 make 返回 2 的原因，把完整输出保存到文件并在失败时打印尾部�?
           LOG="${PWD}/build-windows.log"
           # MinGW: autotools may add -lc/-ldl; provide aliases if missing.
           if [ ! -f /mingw64/lib/libc.a ] && [ -f /mingw64/lib/libmsvcrt.a ]; then
@@ -610,34 +607,33 @@ jobs:
           fi
 
           : > "$LOG"
-          echo "CODEX: start make (windows) $(date -Iseconds)" | tee -a "$LOG"
+          echo "CODEX: start make (windows) $(date -Iseconds)" >> "$LOG"
 
           set +e
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
             "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
-            2>&1 | tee -a "$LOG"
+            >> "$LOG" 2>&1
           STATUS="$?"
           set -e
 
           # libevent on Windows may not produce libevent_pthreads.a, but upper layers can hard-link it.
-          # 无论 make 返回码如何，只要日志里出现 “cannot find ...libevent_pthreads.a” 就执行兜底修补并重跑一次 make。
+          # Always apply fixups when make fails (or log mentions libevent_pthreads.a), then rerun make once.
           if [ "${STATUS}" -ne 0 ] || grep -Fq "libevent_pthreads.a" "$LOG"; then
-            echo "CODEX: detected missing libevent_pthreads.a; applying link fixups and rerunning make" | tee -a "$LOG"
+            echo "CODEX: detected missing libevent_pthreads.a; applying link fixups and rerunning make" >> "$LOG"
 
-            # 1) 生成 libevent_pthreads.a：把 libevent.a 复制一份作为同名代理文件
+            # Create a libevent_pthreads.a alias by copying libevent.a (libevent uses Windows threads on MinGW).
             LIBEVENT_A="$(find bin -path '*/libevent/.libs/libevent.a' -print -quit 2>/dev/null || true)"
             if [ -n "$LIBEVENT_A" ]; then
               LIBEVENT_DIR="${LIBEVENT_A%/libevent.a}"
               if [ ! -f "${LIBEVENT_DIR}/libevent_pthreads.a" ]; then
                 cp "$LIBEVENT_A" "${LIBEVENT_DIR}/libevent_pthreads.a" || true
-                echo "created: ${LIBEVENT_DIR}/libevent_pthreads.a (copied from libevent.a)" | tee -a "$LOG"
+                echo "CODEX: created ${LIBEVENT_DIR}/libevent_pthreads.a (copied from libevent.a)" >> "$LOG"
               fi
             else
-              echo "WARN: could not locate libevent.a under bin/**/libevent/.libs" | tee -a "$LOG"
+              echo "CODEX: WARN could not locate libevent.a under bin/**/libevent/.libs" >> "$LOG"
             fi
 
-            # 兜底：readies 生成的 bin/*/Makefile 里可能仍引用 libevent_pthreads.a 或缺少 winsock 依赖库。
-            # 在重跑前统一修补生成文件，避免继续报 __imp_* / WinMain。
+            # Patch generated makefiles under bin/ to avoid hard-linking libevent_pthreads and to add Win libs.
             python - <<'PY'
             from __future__ import annotations
 
@@ -663,7 +659,7 @@ jobs:
                 new = new.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
                 new = new.replace("libevent_pthreads", "libevent")
 
-                # 确保变量里包含 winsock 相关库（即便链接命令不显式出现 libevent/hiredis 字样也能生效）
+                # 确保变量里包�?winsock 相关库（即便链接命令不显式出�?libevent/hiredis 字样也能生效�?
                 if "-lws2_32" not in new:
                     out_lines = []
                     for line in new.splitlines(True):
@@ -674,7 +670,7 @@ jobs:
                         out_lines.append(line)
                     new = "".join(out_lines)
 
-                # 防止被当作 exe 链接导致 WinMain：优先从变量层面补 -shared
+                # 防止被当�?exe 链接导致 WinMain：优先从变量层面�?-shared
                 if "redistimeseries.so" in new and "-shared" not in new:
                     out_lines = []
                     injected = False
@@ -698,7 +694,7 @@ jobs:
             set +e
             "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
               "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
-              2>&1 | tee -a "$LOG"
+              >> "$LOG" 2>&1
             STATUS="$?"
             set -e
           fi
