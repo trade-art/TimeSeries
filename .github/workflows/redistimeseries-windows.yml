@@ -78,7 +78,7 @@ jobs:
           # Configure libevent to avoid building samples/regress on Windows (they fail to compile under MinGW).
           LIBEVENT_MK="build/libevent/Makefile"
           if [ -f "$LIBEVENT_MK" ]; then
-            python - <<'PY'
+          python - <<'PY'
 from pathlib import Path
 
 path = Path("build/libevent/Makefile")
