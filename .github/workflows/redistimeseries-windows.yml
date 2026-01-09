@@ -155,6 +155,33 @@ jobs:
           PY
           fi
 
+          # CMake 4.x 移除了对 <3.5 的兼容：cpu_features 与其 googletest 下载脚本需要提升最低版本。
+          CPU_FEATURES_CMAKE="deps/cpu_features/CMakeLists.txt"
+          if [ -f "$CPU_FEATURES_CMAKE" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("deps/cpu_features/CMakeLists.txt")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          text2 = text.replace("cmake_minimum_required(VERSION 3.0)", "cmake_minimum_required(VERSION 3.5)")
+          if text2 != text:
+              path.write_text(text2, encoding="utf-8")
+          PY
+          fi
+
+          GTEST_DL_CMAKE="deps/cpu_features/cmake/googletest.CMakeLists.txt.in"
+          if [ -f "$GTEST_DL_CMAKE" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("deps/cpu_features/cmake/googletest.CMakeLists.txt.in")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          text2 = text.replace("cmake_minimum_required(VERSION 2.8.2)", "cmake_minimum_required(VERSION 3.5)")
+          if text2 != text:
+              path.write_text(text2, encoding="utf-8")
+          PY
+          fi
+
       - name: Build RedisTimeSeries module
         working-directory: redistimeseries-src
         run: |
@@ -175,7 +202,6 @@ jobs:
           set +e
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
             "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
-            "CMAKE_DEFS+=CMAKE_POLICY_VERSION_MINIMUM=3.5" \
             2>&1 | tee "$LOG"
           STATUS="${PIPESTATUS[0]}"
           set -e
