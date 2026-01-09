@@ -513,6 +513,76 @@ jobs:
           PY
           fi
 
+      - name: Patch RedisTimeSeries Makefile link flags (Windows)
+        working-directory: redistimeseries-src
+        run: |
+          set -euo pipefail
+          if [ -f "Makefile" ]; then
+          python - <<'PY'
+          from __future__ import annotations
+
+          import re
+          from pathlib import Path
+
+          path = Path("Makefile")
+          original = path.read_text(encoding="utf-8", errors="ignore")
+          text = original
+
+          # 1) Windows 下 libevent 通常不会生成 libevent_pthreads.a；上层 Makefile 若硬编码它会导致链接失败。
+          #    直接改为链接 libevent.a（同目录下的 .libs/libevent.a）。
+          text = text.replace("libevent_pthreads.a", "libevent.a")
+
+          # 2) 修补 redistimeseries.so 的链接命令：确保是共享库(-shared) + 补齐 winsock/iphlpapi 依赖库。
+          lines = text.splitlines(True)
+          # 匹配目标行：...redistimeseries.so: ...
+          target_re = re.compile(r"^[^#\\n]*redistimeseries\\.so\\s*:\\s*.*$")
+          changed = False
+
+          def patch_link_line(line: str) -> str:
+              nonlocal changed
+              if line.lstrip().startswith(("@echo", "echo ")):
+                  return line
+
+              patched = line
+
+              # 避免被当作 exe 链接（否则会出现 WinMain）
+              if "redistimeseries.so" in patched and "-o" in patched and "-shared" not in patched:
+                  patched = patched.replace("-o", "-shared -o", 1)
+
+              # 补齐 Windows socket/网络依赖：hiredis/libevent 都会用到
+              if ("redistimeseries.so" in patched or "hiredis" in patched or "libevent" in patched) and "-lws2_32" not in patched:
+                  extra = " -lws2_32 -liphlpapi -ladvapi32 -lshell32"
+                  if patched.rstrip().endswith("\\"):
+                      patched = patched.rstrip()[:-1] + extra + " \\\n"
+                  else:
+                      patched = patched.rstrip("\n") + extra + "\n"
+
+              if patched != line:
+                  changed = True
+              return patched
+
+          i = 0
+          while i < len(lines):
+              if target_re.match(lines[i]):
+                  # recipe 通常是接下来以 TAB 开头的多行；直到下一个“规则行”或文件结束。
+                  j = i + 1
+                  while j < len(lines):
+                      if lines[j].startswith("\t"):
+                          lines[j] = patch_link_line(lines[j])
+                          j += 1
+                          continue
+                      if re.match(r"^[^\\s#].*:\\s*.*$", lines[j]):
+                          break
+                      j += 1
+                  break
+              i += 1
+
+          patched_text = "".join(lines)
+          if patched_text != original:
+              path.write_text(patched_text, encoding="utf-8")
+          PY
+          fi
+
       - name: Build RedisTimeSeries module
         working-directory: redistimeseries-src
         run: |
