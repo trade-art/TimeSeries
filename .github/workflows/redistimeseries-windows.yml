@@ -535,7 +535,7 @@ jobs:
           # 2) 修补 redistimeseries.so 的链接命令：确保是共享库(-shared) + 补齐 winsock/iphlpapi 依赖库。
           lines = text.splitlines(True)
           # 匹配目标行：...redistimeseries.so: ...
-          target_re = re.compile(r"^[^#\\n]*redistimeseries\\.so\\s*:\\s*.*$")
+          target_re = re.compile(r"^[^#\n]*redistimeseries\.so\s*:\s*.*$")
 
           def patch_link_line(line: str) -> str:
               if line.lstrip().startswith(("@echo", "echo ")):
@@ -567,7 +567,7 @@ jobs:
                           lines[j] = patch_link_line(lines[j])
                           j += 1
                           continue
-                      if re.match(r"^[^\\s#].*:\\s*.*$", lines[j]):
+                      if re.match(r"^[^\s#].*:\s*.*$", lines[j]):
                           break
                       j += 1
                   break
@@ -617,6 +617,61 @@ jobs:
             if [ -n "$LIBEVENT_A" ]; then
               cp "$LIBEVENT_A" "${LIBEVENT_A%/libevent.a}/libevent_pthreads.a" || true
             fi
+
+            # 兜底：readies 生成的 bin/*/Makefile 里可能仍引用 libevent_pthreads.a 或缺少 winsock 依赖库。
+            # 在重跑前统一修补生成文件，避免继续报 __imp_* / WinMain。
+            python - <<'PY'
+            from __future__ import annotations
+
+            from pathlib import Path
+
+            root = Path("bin")
+            if not root.exists():
+                raise SystemExit(0)
+
+            extra_libs = " -lws2_32 -liphlpapi -ladvapi32 -lshell32"
+            made_changes = False
+
+            for path in root.rglob("*"):
+                if not path.is_file():
+                    continue
+                if path.name != "Makefile" and not path.name.endswith(".mk"):
+                    continue
+
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                new = text.replace("libevent_pthreads.a", "libevent.a")
+
+                # 确保变量里包含 winsock 相关库（即便链接命令不显式出现 libevent/hiredis 字样也能生效）
+                if "-lws2_32" not in new:
+                    out_lines = []
+                    for line in new.splitlines(True):
+                        if line.startswith(("LIBS", "LDLIBS")) and ("=" in line) and ("-lws2_32" not in line):
+                            out_lines.append(line.rstrip("\n") + extra_libs + "\n")
+                            made_changes = True
+                            continue
+                        out_lines.append(line)
+                    new = "".join(out_lines)
+
+                # 防止被当作 exe 链接导致 WinMain：优先从变量层面补 -shared
+                if "redistimeseries.so" in new and "-shared" not in new:
+                    out_lines = []
+                    injected = False
+                    for line in new.splitlines(True):
+                        if not injected and line.startswith("LDFLAGS") and ("=" in line) and ("-shared" not in line):
+                            out_lines.append(line.rstrip("\n") + " -shared\n")
+                            injected = True
+                            made_changes = True
+                            continue
+                        out_lines.append(line)
+                    new = "".join(out_lines)
+
+                if new != text:
+                    path.write_text(new, encoding="utf-8")
+                    made_changes = True
+
+            if made_changes:
+                print("patched generated makefiles under bin/")
+            PY
 
             set +e
             "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
