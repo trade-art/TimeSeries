@@ -200,17 +200,40 @@ jobs:
 
           newline = "\r\n" if "\r\n" in text else "\n"
 
-          # 1) mr_thpool_pause 在 Windows 下直接返回
-          if "#if defined(_WIN32)" not in text and "mr_thpool_pause" in text:
-              text = text.replace(
-                  "void mr_thpool_pause(mr_thpool_* thpool_p) {",
-                  "void mr_thpool_pause(mr_thpool_* thpool_p) {" + newline +
-                  "#if defined(_WIN32) && !defined(__CYGWIN__)" + newline +
-                  "  (void)thpool_p;" + newline +
-                  "  return;" + newline +
-                  "#endif",
-                  1
-              )
+          # 1) mr_thpool_pause: Windows 下禁用 SIGUSR2（用预处理剔除），非 Windows 维持原逻辑
+          sig = "void mr_thpool_pause(mr_thpool_* thpool_p)"
+          start = text.find(sig)
+          if start != -1:
+              brace = text.find("{", start)
+              if brace == -1:
+                  raise SystemExit("ERROR: cannot find '{' for mr_thpool_pause")
+              depth = 0
+              end = None
+              for i in range(brace, len(text)):
+                  c = text[i]
+                  if c == "{":
+                      depth += 1
+                  elif c == "}":
+                      depth -= 1
+                      if depth == 0:
+                          end = i
+                          break
+              if end is None:
+                  raise SystemExit("ERROR: cannot find end of mr_thpool_pause")
+
+              body = text[brace + 1 : end].strip()
+              if "SIGUSR2" in body and "#if defined(_WIN32)" not in body:
+                  replacement = (
+                      sig + " {" + newline +
+                      "#if defined(_WIN32) && !defined(__CYGWIN__)" + newline +
+                      "  (void)thpool_p;" + newline +
+                      "  return;" + newline +
+                      "#else" + newline +
+                      body + newline +
+                      "#endif" + newline +
+                      "}"
+                  )
+                  text = text[:start] + replacement + text[end + 1 :]
 
           # 2) thread_do 里的 signal handler 注册在 Windows 下跳过
           marker = "  /* Register signal handler */"
@@ -412,6 +435,80 @@ jobs:
               raise SystemExit("ERROR: cannot find include anchor in src/consts.h")
 
           path.write_text("".join(out), encoding="utf-8")
+          PY
+          fi
+
+      - name: Patch LibMR thpool for Windows (disable SIGUSR2)
+        working-directory: redistimeseries-src
+        run: |
+          set -euo pipefail
+          THPOOL="deps/LibMR/src/utils/thpool.c"
+          if [ -f "$THPOOL" ]; then
+          python - <<'PY'
+          from __future__ import annotations
+
+          from pathlib import Path
+
+          path = Path("deps/LibMR/src/utils/thpool.c")
+          original = path.read_text(encoding="utf-8", errors="ignore")
+
+          if "SIGUSR2" not in original:
+              raise SystemExit(0)
+
+          if "CODEX_SIGUSR2_GUARD_BEGIN" in original:
+              raise SystemExit(0)
+
+          nl = "\r\n" if "\r\n" in original else "\n"
+          lines = original.splitlines(True)
+          out: list[str] = []
+          i = 0
+
+          def wrap_statement(start_idx: int) -> tuple[list[str], int]:
+              stmt: list[str] = []
+              j = start_idx
+              while True:
+                  stmt.append(lines[j])
+                  if ";" in lines[j]:
+                      break
+                  if j >= len(lines) - 1:
+                      break
+                  j += 1
+                  if len(stmt) > 120:
+                      break
+              return stmt, j
+
+          while i < len(lines):
+              line = lines[i]
+              stripped = line.lstrip()
+
+              if (
+                  "SIGUSR2" in line
+                  and not stripped.startswith("#")
+                  and not stripped.startswith("//")
+                  and not stripped.startswith("/*")
+                  and not stripped.startswith("*")
+              ):
+                  # 只处理语句级用法（以 ';' 结束）。遇到 switch/case 时只做最小包裹，避免误伤。
+                  if stripped.startswith("case ") and ":" in line:
+                      out.append(f"#if !defined(_WIN32) || defined(__CYGWIN__) /* CODEX_SIGUSR2_GUARD_BEGIN */{nl}")
+                      out.append(line)
+                      out.append(f"#endif /* CODEX_SIGUSR2_GUARD_END */{nl}")
+                      i += 1
+                      continue
+
+                  stmt, j = wrap_statement(i)
+                  out.append(f"#if !defined(_WIN32) || defined(__CYGWIN__) /* CODEX_SIGUSR2_GUARD_BEGIN */{nl}")
+                  out.extend(stmt)
+                  out.append(f"#else{nl}(void)0;{nl}#endif /* CODEX_SIGUSR2_GUARD_END */{nl}")
+                  i = j + 1
+                  continue
+
+              out.append(line)
+              i += 1
+
+          patched = "".join(out)
+          if patched != original:
+              path.write_text(patched, encoding="utf-8")
           PY
           fi
 
