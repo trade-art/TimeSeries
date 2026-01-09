@@ -115,8 +115,29 @@ jobs:
           export MYPY=python
 
           # 仅需构建 libevent 库：禁用 samples / regress / openssl，避免 MinGW 下样例与回归测试编译失败。
-          "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" \
-            "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl"
+          # 同时为了便于定位 make 返回 2 的原因，把完整输出保存到文件并在失败时打印尾部。
+          LOG="${PWD}/build-windows.log"
+          set +e
+          "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
+            "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
+            2>&1 | tee "$LOG"
+          STATUS="${PIPESTATUS[0]}"
+          set -e
+
+          echo "make exit code: ${STATUS}"
+          if [ "${STATUS}" -ne 0 ]; then
+            echo "---- build log tail (last 200 lines) ----"
+            tail -n 200 "$LOG" || true
+            exit "${STATUS}"
+          fi
+
+      - name: Upload build log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-windows-log
+          path: redistimeseries-src/build-windows.log
+          retention-days: 14
 
       - name: Package artifact
         run: |
