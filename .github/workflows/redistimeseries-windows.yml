@@ -613,12 +613,11 @@ jobs:
           : > "$LOG"
           echo "CODEX: start make (windows) $(date -Iseconds)" >> "$LOG"
 
-          set +e
+          STATUS=0
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
             "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
-            >> "$LOG" 2>&1
-          STATUS="$?"
-          set -e
+            >> "$LOG" 2>&1 || STATUS=$?
+          echo "CODEX: first make exit code: ${STATUS}" >> "$LOG"
 
           #
           #
@@ -695,12 +694,12 @@ jobs:
                 print("patched generated makefiles under bin/")
             PY
 
-            set +e
+            RERUN_STATUS=0
             "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
               "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
-              >> "$LOG" 2>&1
-            STATUS="$?"
-            set -e
+              >> "$LOG" 2>&1 || RERUN_STATUS=$?
+            STATUS="$RERUN_STATUS"
+            echo "CODEX: rerun make exit code: ${STATUS}" >> "$LOG"
           fi
 
           echo "make exit code: ${STATUS}"
