@@ -105,7 +105,7 @@ jobs:
             sed -i '/-Werror=implicit-function-declaration/d' "$CC_DEFS"
           fi
 
-          # hiredis �?libevent adapter �?Windows 下应使用 evutil_socket_t 作为 fd 类型，避免回调签名不匹配�?
+          # hiredis çš?libevent adapter åœ?Windows ä¸‹åº”ä½¿ç”¨ evutil_socket_t ä½œä¸º fd ç±»åž‹ï¼Œé¿å…å›žè°ƒç­¾åä¸åŒ¹é…ã€?
           HIREDIS_LIBEVENT_H="deps/LibMR/deps/hiredis/adapters/libevent.h"
           if [ -f "$HIREDIS_LIBEVENT_H" ]; then
           python - <<'PY'
@@ -124,7 +124,7 @@ jobs:
           PY
           fi
 
-          # LibMR �?Windows 下应使用 libevent �?windows threads；同时避免调用不存在�?err()�?
+          # LibMR åœ?Windows ä¸‹åº”ä½¿ç”¨ libevent çš?windows threadsï¼›åŒæ—¶é¿å…è°ƒç”¨ä¸å­˜åœ¨çš?err()ã€?
           LIBMR_EVENT_LOOP_C="deps/LibMR/src/event_loop.c"
           if [ -f "$LIBMR_EVENT_LOOP_C" ]; then
           python - <<'PY'
@@ -133,14 +133,14 @@ jobs:
           path = Path("deps/LibMR/src/event_loop.c")
           text = path.read_text(encoding="utf-8", errors="ignore")
 
-          # 1) 禁止在未知平台调�?err()（Windows/MSYS2 会走�?else 分支）�?
+          # 1) ç¦æ­¢åœ¨æœªçŸ¥å¹³å°è°ƒç”?err()ï¼ˆWindows/MSYS2 ä¼šèµ°åˆ?else åˆ†æ”¯ï¼‰ã€?
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: 不支�?pthread_setname_np/prctl，跳过线程命�?*/',
+                  '  /* Windows/MSYS2: ä¸æ”¯æŒ?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘½å?*/',
               )
 
-          # 2) Windows 下使�?evthread_use_windows_threads；其它平台继续用 pthreads�?
+          # 2) Windows ä¸‹ä½¿ç”?evthread_use_windows_threadsï¼›å…¶å®ƒå¹³å°ç»§ç»­ç”¨ pthreadsã€?
           if "evthread_use_pthreads();" in text and "evthread_use_windows_threads" not in text:
               text = text.replace(
                   "    evthread_use_pthreads();",
@@ -155,7 +155,7 @@ jobs:
           PY
           fi
 
-          # LibMR 使用 random() 获取随机数；Windows/MinGW 下用 rand() 替代（语义足够用于抽样）�?
+          # LibMR ä½¿ç”¨ random() èŽ·å–éšæœºæ•°ï¼›Windows/MinGW ä¸‹ç”¨ rand() æ›¿ä»£ï¼ˆè¯­ä¹‰è¶³å¤Ÿç”¨äºŽæŠ½æ ·ï¼‰ã€?
           LIBMR_DICT_C="deps/LibMR/src/utils/dict.c"
           if [ -f "$LIBMR_DICT_C" ]; then
           python - <<'PY'
@@ -166,7 +166,7 @@ jobs:
           if "random()" not in text:
               raise SystemExit(0)
 
-          # 避免重复替换
+          # é¿å…é‡å¤æ›¿æ¢
           if "mr_random()" in text:
               raise SystemExit(0)
 
@@ -188,7 +188,7 @@ jobs:
           PY
           fi
 
-          # LibMR 线程池用 POSIX signals(SIGUSR2/sigaction) 实现 pause/resume；Windows/MinGW 不支持，禁用该能力�?
+          # LibMR çº¿ç¨‹æ± ç”¨ POSIX signals(SIGUSR2/sigaction) å®žçŽ° pause/resumeï¼›Windows/MinGW ä¸æ”¯æŒï¼Œç¦ç”¨è¯¥èƒ½åŠ›ã€?
           LIBMR_THPOOL_C="deps/LibMR/src/utils/thpool.c"
           if [ -f "$LIBMR_THPOOL_C" ]; then
           python - <<'PY'
@@ -201,7 +201,7 @@ jobs:
 
           newline = "\r\n" if "\r\n" in text else "\n"
 
-          # 1) mr_thpool_pause: Windows 下禁�?SIGUSR2（用预处理剔除），非 Windows 维持原逻辑
+          # 1) mr_thpool_pause: Windows ä¸‹ç¦ç”?SIGUSR2ï¼ˆç”¨é¢„å¤„ç†å‰”é™¤ï¼‰ï¼Œéž Windows ç»´æŒåŽŸé€»è¾‘
           sig = "void mr_thpool_pause(mr_thpool_* thpool_p)"
           start = text.find(sig)
           if start != -1:
@@ -236,19 +236,19 @@ jobs:
                   )
                   text = text[:start] + replacement + text[end + 1 :]
 
-          # 2) thread_do 里的 signal handler 注册�?Windows 下跳�?
+          # 2) thread_do é‡Œçš„ signal handler æ³¨å†Œåœ?Windows ä¸‹è·³è¿?
           marker = "  /* Register signal handler */"
           if marker in text:
               idx = text.find(marker)
               if idx != -1:
-                  # �?marker 前插�?Windows guard，marker 后追�?#endif（简单定位：�?sigaction(...) 块后�?
+                  # åœ?marker å‰æ’å…?Windows guardï¼Œmarker åŽè¿½åŠ?#endifï¼ˆç®€å•å®šä½ï¼šåœ?sigaction(...) å—åŽï¼?
                   if "#if defined(_WIN32) && !defined(__CYGWIN__)" not in text[idx-200:idx+200]:
                       text = text.replace(
                           marker,
                           "#if !defined(_WIN32) || defined(__CYGWIN__)" + newline + marker,
                           1,
                       )
-                  # 在第一次出�?"  /* Mark thread as alive" 前插�?#endif
+                  # åœ¨ç¬¬ä¸€æ¬¡å‡ºçŽ?"  /* Mark thread as alive" å‰æ’å…?#endif
                   alive_marker = "  /* Mark thread as alive (initialized) */"
                   if alive_marker in text and "#endif" not in text[text.find(marker):text.find(alive_marker)]:
                       text = text.replace(
@@ -257,18 +257,18 @@ jobs:
                           1,
                       )
 
-          # 3) 去掉 thread name �?err()（和 event_loop.c 一样）
+          # 3) åŽ»æŽ‰ thread name çš?err()ï¼ˆå’Œ event_loop.c ä¸€æ ·ï¼‰
           if 'err("thread_do()' in text:
               text = text.replace(
                   '  err("thread_do(): pthread_setname_np is not supported on this system");',
-                  '  /* Windows/MSYS2: 不支�?pthread_setname_np/prctl，跳过线程命�?*/',
+                  '  /* Windows/MSYS2: ä¸æ”¯æŒ?pthread_setname_np/prctlï¼Œè·³è¿‡çº¿ç¨‹å‘½å?*/',
               )
 
           path.write_text(text, encoding="utf-8")
           PY
           fi
 
-          # MinGW/Windows 没有 POSIX �?strsep；rmutil 使用它解�?INFO 输出，会导致编译失败�?
+          # MinGW/Windows æ²¡æœ‰ POSIX çš?strsepï¼›rmutil ä½¿ç”¨å®ƒè§£æž?INFO è¾“å‡ºï¼Œä¼šå¯¼è‡´ç¼–è¯‘å¤±è´¥ã€?
           RMUTIL_UTIL_C="deps/RedisModulesSDK/rmutil/util.c"
           if [ -f "$RMUTIL_UTIL_C" ]; then
           python - <<'PY'
@@ -319,7 +319,7 @@ jobs:
           PY
           fi
 
-          # CMake 4.x 移除了对 <3.5 的兼容：cpu_features 与其 googletest 下载脚本需要提升最低版本�?
+          # CMake 4.x ç§»é™¤äº†å¯¹ <3.5 çš„å…¼å®¹ï¼šcpu_features ä¸Žå…¶ googletest ä¸‹è½½è„šæœ¬éœ€è¦æå‡æœ€ä½Žç‰ˆæœ¬ã€?
           CPU_FEATURES_CMAKE="deps/cpu_features/CMakeLists.txt"
           if [ -f "$CPU_FEATURES_CMAKE" ]; then
           python - <<'PY'
@@ -346,7 +346,7 @@ jobs:
           PY
           fi
 
-          # MinGW �?<sys/param.h> 可能不提�?MAX 宏，导致被当成函数调用并触发编译错误�?
+          # MinGW çš?<sys/param.h> å¯èƒ½ä¸æä¾?MAX å®ï¼Œå¯¼è‡´è¢«å½“æˆå‡½æ•°è°ƒç”¨å¹¶è§¦å‘ç¼–è¯‘é”™è¯¯ã€?
           ARR_H="src/utils/arr.h"
           if [ -f "$ARR_H" ]; then
           python - <<'PY'
@@ -377,7 +377,7 @@ jobs:
           PY
           fi
 
-          # LibMR �?utils/arr.h 同样依赖 MAX 宏：�?MinGW 下补齐�?
+          # LibMR çš?utils/arr.h åŒæ ·ä¾èµ– MAX å®ï¼šåœ?MinGW ä¸‹è¡¥é½ã€?
           LIBMR_ARR_H="deps/LibMR/src/utils/arr.h"
           if [ -f "$LIBMR_ARR_H" ]; then
           python - <<'PY'
@@ -408,7 +408,7 @@ jobs:
           PY
           fi
 
-          # Windows/MinGW 下可能缺�?ushort typedef，统一补齐（仅�?Windows 生效，避免影响其它平台）�?
+          # Windows/MinGW ä¸‹å¯èƒ½ç¼ºå°?ushort typedefï¼Œç»Ÿä¸€è¡¥é½ï¼ˆä»…åœ?Windows ç”Ÿæ•ˆï¼Œé¿å…å½±å“å…¶å®ƒå¹³å°ï¼‰ã€?
           CONSTS_H="src/consts.h"
           if [ -f "$CONSTS_H" ]; then
           python - <<'PY'
@@ -489,7 +489,7 @@ jobs:
                   and not stripped.startswith("/*")
                   and not stripped.startswith("*")
               ):
-                  # 只处理语句级用法（以 ';' 结束）。遇�?switch/case 时只做最小包裹，避免误伤�?
+                  # åªå¤„ç†è¯­å¥çº§ç”¨æ³•ï¼ˆä»¥ ';' ç»“æŸï¼‰ã€‚é‡åˆ?switch/case æ—¶åªåšæœ€å°åŒ…è£¹ï¼Œé¿å…è¯¯ä¼¤ã€?
                   if stripped.startswith("case ") and ":" in line:
                       out.append(f"#if !defined(_WIN32) || defined(__CYGWIN__) /* CODEX_SIGUSR2_GUARD_BEGIN */{nl}")
                       out.append(line)
@@ -528,17 +528,17 @@ jobs:
           original = path.read_text(encoding="utf-8", errors="ignore")
           text = original
 
-          # 1) Windows �?libevent 通常不会生成 libevent_pthreads.a；上�?Makefile 若硬编码它会导致链接失败�?          #    直接改为链接 libevent.a（同目录下的 .libs/libevent.a）�?
+          # 1) Windows ä¸?libevent é€šå¸¸ä¸ä¼šç”Ÿæˆ libevent_pthreads.aï¼›ä¸Šå±?Makefile è‹¥ç¡¬ç¼–ç å®ƒä¼šå¯¼è‡´é“¾æŽ¥å¤±è´¥ã€?          #    ç›´æŽ¥æ”¹ä¸ºé“¾æŽ¥ libevent.aï¼ˆåŒç›®å½•ä¸‹çš„ .libs/libevent.aï¼‰ã€?
           text = text.replace("libevent_pthreads.a", "libevent.a")
-          # 一些规则会�?$(LIBEXT)/${LIBEXT} 拼接后缀，也需要一并修�?
+          # ä¸€äº›è§„åˆ™ä¼šç”?$(LIBEXT)/${LIBEXT} æ‹¼æŽ¥åŽç¼€ï¼Œä¹Ÿéœ€è¦ä¸€å¹¶ä¿®æ­?
           text = text.replace("libevent_pthreads.$(LIBEXT)", "libevent.$(LIBEXT)")
           text = text.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
-          # 更保守但更稳：把 Makefile 内的 libevent_pthreads 统统改为 libevent（Windows 上走 win32 threads�?
+          # æ›´ä¿å®ˆä½†æ›´ç¨³ï¼šæŠŠ Makefile å†…çš„ libevent_pthreads ç»Ÿç»Ÿæ”¹ä¸º libeventï¼ˆWindows ä¸Šèµ° win32 threadsï¼?
           text = text.replace("libevent_pthreads", "libevent")
 
-          # 2) 修补 redistimeseries.so 的链接命令：确保是共享库(-shared) + 补齐 winsock/iphlpapi 依赖库�?
+          # 2) ä¿®è¡¥ redistimeseries.so çš„é“¾æŽ¥å‘½ä»¤ï¼šç¡®ä¿æ˜¯å…±äº«åº“(-shared) + è¡¥é½ winsock/iphlpapi ä¾èµ–åº“ã€?
           lines = text.splitlines(True)
-          # 匹配目标行：...redistimeseries.so: ...
+          # åŒ¹é…ç›®æ ‡è¡Œï¼š...redistimeseries.so: ...
           target_re = re.compile(r"^[^#\n]*redistimeseries\.so\s*:\s*.*$")
 
           def patch_link_line(line: str) -> str:
@@ -547,11 +547,11 @@ jobs:
 
               patched = line
 
-              # 避免被当�?exe 链接（否则会出现 WinMain�?
+              # é¿å…è¢«å½“ä½?exe é“¾æŽ¥ï¼ˆå¦åˆ™ä¼šå‡ºçŽ° WinMainï¼?
               if "redistimeseries.so" in patched and "-o" in patched and "-shared" not in patched:
                   patched = patched.replace("-o", "-shared -o", 1)
 
-              # 补齐 Windows socket/网络依赖：hiredis/libevent 都会用到
+              # è¡¥é½ Windows socket/ç½‘ç»œä¾èµ–ï¼šhiredis/libevent éƒ½ä¼šç”¨åˆ°
               if ("redistimeseries.so" in patched or "hiredis" in patched or "libevent" in patched) and "-lws2_32" not in patched:
                   extra = " -lws2_32 -liphlpapi -ladvapi32 -lshell32"
                   if patched.rstrip().endswith("\\"):
@@ -564,7 +564,7 @@ jobs:
           i = 0
           while i < len(lines):
               if target_re.match(lines[i]):
-                  # recipe 通常是接下来�?TAB 开头的多行；直到下一个“规则行”或文件结束�?
+                  # recipe é€šå¸¸æ˜¯æŽ¥ä¸‹æ¥ä»?TAB å¼€å¤´çš„å¤šè¡Œï¼›ç›´åˆ°ä¸‹ä¸€ä¸ªâ€œè§„åˆ™è¡Œâ€æˆ–æ–‡ä»¶ç»“æŸã€?
                   j = i + 1
                   while j < len(lines):
                       if lines[j].startswith("\t"):
@@ -594,9 +594,9 @@ jobs:
           # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
           export MYPY=python
 
-          # CMake 4.x 默认更倾向 Ninja；�?readies �?cmake.rules 期望生成 Makefile 并用 make 构建�?          export CMAKE_GENERATOR="Unix Makefiles"
+          # CMake 4.x é»˜è®¤æ›´å€¾å‘ Ninjaï¼›è€?readies çš?cmake.rules æœŸæœ›ç”Ÿæˆ Makefile å¹¶ç”¨ make æž„å»ºã€?          export CMAKE_GENERATOR="Unix Makefiles"
 
-          # 仅需构建 libevent 库：禁用 samples / regress / openssl，避�?MinGW 下样例与回归测试编译失败�?          # 同时为了便于定位 make 返回 2 的原因，把完整输出保存到文件并在失败时打印尾部�?
+          # ä»…éœ€æž„å»º libevent åº“ï¼šç¦ç”¨ samples / regress / opensslï¼Œé¿å…?MinGW ä¸‹æ ·ä¾‹ä¸Žå›žå½’æµ‹è¯•ç¼–è¯‘å¤±è´¥ã€?          # åŒæ—¶ä¸ºäº†ä¾¿äºŽå®šä½ make è¿”å›ž 2 çš„åŽŸå› ï¼ŒæŠŠå®Œæ•´è¾“å‡ºä¿å­˜åˆ°æ–‡ä»¶å¹¶åœ¨å¤±è´¥æ—¶æ‰“å°å°¾éƒ¨ã€?
           LOG="${PWD}/build-windows.log"
           # MinGW: autotools may add -lc/-ldl; provide aliases if missing.
           if [ ! -f /mingw64/lib/libc.a ] && [ -f /mingw64/lib/libmsvcrt.a ]; then
@@ -659,7 +659,7 @@ jobs:
                 new = new.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
                 new = new.replace("libevent_pthreads", "libevent")
 
-                # 确保变量里包�?winsock 相关库（即便链接命令不显式出�?libevent/hiredis 字样也能生效�?
+                # ç¡®ä¿å˜é‡é‡ŒåŒ…å?winsock ç›¸å…³åº“ï¼ˆå³ä¾¿é“¾æŽ¥å‘½ä»¤ä¸æ˜¾å¼å‡ºçŽ?libevent/hiredis å­—æ ·ä¹Ÿèƒ½ç”Ÿæ•ˆï¼?
                 if "-lws2_32" not in new:
                     out_lines = []
                     for line in new.splitlines(True):
@@ -670,7 +670,7 @@ jobs:
                         out_lines.append(line)
                     new = "".join(out_lines)
 
-                # 防止被当�?exe 链接导致 WinMain：优先从变量层面�?-shared
+                # é˜²æ­¢è¢«å½“ä½?exe é“¾æŽ¥å¯¼è‡´ WinMainï¼šä¼˜å…ˆä»Žå˜é‡å±‚é¢è¡?-shared
                 if "redistimeseries.so" in new and "-shared" not in new:
                     out_lines = []
                     injected = False
