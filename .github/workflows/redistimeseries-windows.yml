@@ -534,6 +534,8 @@ jobs:
           # 一些规则会用 $(LIBEXT)/${LIBEXT} 拼接后缀，也需要一并修正
           text = text.replace("libevent_pthreads.$(LIBEXT)", "libevent.$(LIBEXT)")
           text = text.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
+          # 更保守但更稳：把 Makefile 内的 libevent_pthreads 统统改为 libevent（Windows 上走 win32 threads）
+          text = text.replace("libevent_pthreads", "libevent")
 
           # 2) 修补 redistimeseries.so 的链接命令：确保是共享库(-shared) + 补齐 winsock/iphlpapi 依赖库。
           lines = text.splitlines(True)
@@ -611,7 +613,7 @@ jobs:
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
             "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
             2>&1 | tee "$LOG"
-          STATUS="${PIPESTATUS[0]}"
+          STATUS="$?"
           set -e
 
           # libevent on Windows may not produce libevent_pthreads.a, but upper layers can hard-link it.
@@ -656,6 +658,7 @@ jobs:
                 new = new.replace("libevent_pthreads.a", "libevent.a")
                 new = new.replace("libevent_pthreads.$(LIBEXT)", "libevent.$(LIBEXT)")
                 new = new.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
+                new = new.replace("libevent_pthreads", "libevent")
 
                 # 确保变量里包含 winsock 相关库（即便链接命令不显式出现 libevent/hiredis 字样也能生效）
                 if "-lws2_32" not in new:
@@ -693,7 +696,7 @@ jobs:
             "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
               "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
               2>&1 | tee -a "$LOG"
-            STATUS="${PIPESTATUS[0]}"
+            STATUS="$?"
             set -e
           fi
 
