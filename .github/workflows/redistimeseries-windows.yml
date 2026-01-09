@@ -531,6 +531,9 @@ jobs:
           # 1) Windows 下 libevent 通常不会生成 libevent_pthreads.a；上层 Makefile 若硬编码它会导致链接失败。
           #    直接改为链接 libevent.a（同目录下的 .libs/libevent.a）。
           text = text.replace("libevent_pthreads.a", "libevent.a")
+          # 一些规则会用 $(LIBEXT)/${LIBEXT} 拼接后缀，也需要一并修正
+          text = text.replace("libevent_pthreads.$(LIBEXT)", "libevent.$(LIBEXT)")
+          text = text.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
 
           # 2) 修补 redistimeseries.so 的链接命令：确保是共享库(-shared) + 补齐 winsock/iphlpapi 依赖库。
           lines = text.splitlines(True)
@@ -612,10 +615,20 @@ jobs:
           set -e
 
           # libevent on Windows may not produce libevent_pthreads.a, but upper layers can hard-link it.
-          if [ "${STATUS}" -ne 0 ] && grep -q "libevent_pthreads\\.a: No such file or directory" "$LOG"; then
+          # 这里无条件做一次“链接兜底修补 + 重跑”，避免只停留在第一轮失败。
+          if [ "${STATUS}" -ne 0 ]; then
+            echo "---- first make failed; attempting Windows link fixups ----" | tee -a "$LOG"
+
+            # 1) 生成 libevent_pthreads.a：把 libevent.a 复制一份作为同名代理文件
             LIBEVENT_A="$(find bin -path '*/libevent/.libs/libevent.a' -print -quit 2>/dev/null || true)"
             if [ -n "$LIBEVENT_A" ]; then
-              cp "$LIBEVENT_A" "${LIBEVENT_A%/libevent.a}/libevent_pthreads.a" || true
+              LIBEVENT_DIR="${LIBEVENT_A%/libevent.a}"
+              if [ ! -f "${LIBEVENT_DIR}/libevent_pthreads.a" ]; then
+                cp "$LIBEVENT_A" "${LIBEVENT_DIR}/libevent_pthreads.a" || true
+                echo "created: ${LIBEVENT_DIR}/libevent_pthreads.a (copied from libevent.a)" | tee -a "$LOG"
+              fi
+            else
+              echo "WARN: could not locate libevent.a under bin/**/libevent/.libs" | tee -a "$LOG"
             fi
 
             # 兜底：readies 生成的 bin/*/Makefile 里可能仍引用 libevent_pthreads.a 或缺少 winsock 依赖库。
@@ -639,7 +652,10 @@ jobs:
                     continue
 
                 text = path.read_text(encoding="utf-8", errors="ignore")
-                new = text.replace("libevent_pthreads.a", "libevent.a")
+                new = text
+                new = new.replace("libevent_pthreads.a", "libevent.a")
+                new = new.replace("libevent_pthreads.$(LIBEXT)", "libevent.$(LIBEXT)")
+                new = new.replace("libevent_pthreads.${LIBEXT}", "libevent.${LIBEXT}")
 
                 # 确保变量里包含 winsock 相关库（即便链接命令不显式出现 libevent/hiredis 字样也能生效）
                 if "-lws2_32" not in new:
