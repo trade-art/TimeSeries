@@ -11,6 +11,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+
     defaults:
       run:
         shell: msys2 {0}
@@ -75,7 +76,6 @@ jobs:
           fi
 
           # Configure libevent to avoid building samples/regress on Windows (they fail to compile under MinGW).
-          # Must be set before readies' mk/defs is included.
           LIBEVENT_MK="build/libevent/Makefile"
           if [ -f "$LIBEVENT_MK" ]; then
             python - <<'PY'
@@ -94,7 +94,7 @@ if "--disable-samples" not in text:
 PY
           fi
 
-          # Drop readies -Werror flags that break dependency builds on Windows/MinGW (e.g. libevent samples).
+          # Drop readies -Werror flags that break dependency builds on Windows/MinGW.
           CC_DEFS="deps/readies/mk/cc.defs"
           if [ -f "$CC_DEFS" ]; then
             sed -i '/-Werror=incompatible-pointer-types/d' "$CC_DEFS"
@@ -136,26 +136,6 @@ PY
           cp /mingw64/bin/libcrypto-3-x64.dll "$DIST/" || true
           cp /mingw64/bin/libssl-3-x64.dll "$DIST/" || true
 
-          cat > "$DIST/README.txt" << 'EOF'
-          RedisTimeSeries module for Windows (MSYS2/MinGW)
-          ===============================================
-
-          This artifact contains:
-          - redistimeseries.so (also copied as redistimeseries.dll)
-          - common MSYS2 runtime DLLs (if needed)
-
-          Use with a Windows Redis build that supports loadmodule,
-          e.g. https://github.com/redis-windows/redis-windows
-
-          Load module (example):
-            redis-cli.exe MODULE LOAD <ABS_PATH>\\redistimeseries.so
-
-          Quick test:
-            TS.CREATE test:ts RETENTION 86400000
-            TS.ADD test:ts * 100
-            TS.GET test:ts
-          EOF
-
           (cd dist && 7z a -tzip "RedisTimeSeries-${{ inputs.timeseries_version }}-Windows-x64.zip" "RedisTimeSeries-${{ inputs.timeseries_version }}-Windows-x64")
 
       - name: Upload artifact
@@ -164,3 +144,4 @@ PY
           name: redistimeseries-windows
           path: dist/*.zip
           retention-days: 14
+
