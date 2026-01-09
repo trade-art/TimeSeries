@@ -35,6 +35,7 @@ jobs:
             libtool
             m4
             jq
+            mingw-w64-x86_64-dlfcn
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-make
             make
@@ -529,12 +530,35 @@ jobs:
           # 仅需构建 libevent 库：禁用 samples / regress / openssl，避免 MinGW 下样例与回归测试编译失败。
           # 同时为了便于定位 make 返回 2 的原因，把完整输出保存到文件并在失败时打印尾部。
           LOG="${PWD}/build-windows.log"
+          # MinGW: autotools may add -lc/-ldl; provide aliases if missing.
+          if [ ! -f /mingw64/lib/libc.a ] && [ -f /mingw64/lib/libmsvcrt.a ]; then
+            cp /mingw64/lib/libmsvcrt.a /mingw64/lib/libc.a || true
+          fi
+          if [ ! -f /mingw64/lib/libdl.a ] && [ -f /mingw64/lib/libdlfcn.a ]; then
+            cp /mingw64/lib/libdlfcn.a /mingw64/lib/libdl.a || true
+          fi
+
           set +e
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
             "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
             2>&1 | tee "$LOG"
           STATUS="${PIPESTATUS[0]}"
           set -e
+
+          # libevent on Windows may not produce libevent_pthreads.a, but upper layers can hard-link it.
+          if [ "${STATUS}" -ne 0 ] && grep -q "libevent_pthreads\\.a: No such file or directory" "$LOG"; then
+            LIBEVENT_A="$(find bin -path '*/libevent/.libs/libevent.a' -print -quit 2>/dev/null || true)"
+            if [ -n "$LIBEVENT_A" ]; then
+              cp "$LIBEVENT_A" "${LIBEVENT_A%/libevent.a}/libevent_pthreads.a" || true
+            fi
+
+            set +e
+            "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
+              "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
+              2>&1 | tee -a "$LOG"
+            STATUS="${PIPESTATUS[0]}"
+            set -e
+          fi
 
           echo "make exit code: ${STATUS}"
           if [ "${STATUS}" -ne 0 ]; then
