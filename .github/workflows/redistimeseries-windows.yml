@@ -154,6 +154,39 @@ jobs:
           PY
           fi
 
+          # LibMR 使用 random() 获取随机数；Windows/MinGW 下用 rand() 替代（语义足够用于抽样）。
+          LIBMR_DICT_C="deps/LibMR/src/utils/dict.c"
+          if [ -f "$LIBMR_DICT_C" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("deps/LibMR/src/utils/dict.c")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          if "random()" not in text:
+              raise SystemExit(0)
+
+          # 避免重复替换
+          if "mr_random()" in text:
+              raise SystemExit(0)
+
+          newline = "\r\n" if "\r\n" in text else "\n"
+          include_anchor = "#include <stdlib.h>"
+          if include_anchor not in text:
+              raise SystemExit("ERROR: cannot find include anchor in deps/LibMR/src/utils/dict.c")
+
+          helper = (
+              newline +
+              "#if defined(_WIN32) && !defined(__CYGWIN__)" + newline +
+              "static inline long mr_random(void) { return (long)rand(); }" + newline +
+              "#define random mr_random" + newline +
+              "#endif" + newline
+          )
+
+          text2 = text.replace(include_anchor, include_anchor + helper, 1)
+          path.write_text(text2, encoding="utf-8")
+          PY
+          fi
+
           # MinGW/Windows 没有 POSIX 的 strsep；rmutil 使用它解析 INFO 输出，会导致编译失败。
           RMUTIL_UTIL_C="deps/RedisModulesSDK/rmutil/util.c"
           if [ -f "$RMUTIL_UTIL_C" ]; then
