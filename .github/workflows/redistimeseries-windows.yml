@@ -1,6 +1,7 @@
 name: Build RedisTimeSeries Module (Windows)
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       timeseries_version:
@@ -12,6 +13,9 @@ jobs:
   build:
     runs-on: windows-latest
 
+    env:
+      DEFAULT_TIMESERIES_VERSION: v7.99.91
+
     defaults:
       run:
         shell: msys2 {0}
@@ -19,6 +23,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve RedisTimeSeries version
+        id: vars
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.timeseries_version }}"
+          if [ -z "${VERSION}" ]; then
+            VERSION="${DEFAULT_TIMESERIES_VERSION}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Using RedisTimeSeries version: ${VERSION}"
 
       - name: Setup MSYS2 (MINGW64)
         uses: msys2/setup-msys2@v2
@@ -48,10 +63,7 @@ jobs:
           set -euo pipefail
           if ! command -v python3 >/dev/null 2>&1; then
             if command -v python >/dev/null 2>&1; then
-              cat > /mingw64/bin/python3 <<'EOF'
-          #!/usr/bin/env bash
-          exec python "$@"
-          EOF
+              printf '%s\n' '#!/usr/bin/env bash' 'exec python "$@"' > /mingw64/bin/python3
               chmod +x /mingw64/bin/python3
             fi
           fi
@@ -61,8 +73,8 @@ jobs:
       - name: Download RedisTimeSeries source
         run: |
           set -euo pipefail
-          echo "Cloning redistimeseries ${{ inputs.timeseries_version }}"
-          git clone --recursive --depth 1 --branch "${{ inputs.timeseries_version }}" https://github.com/redistimeseries/redistimeseries.git redistimeseries-src
+          echo "Cloning redistimeseries ${{ steps.vars.outputs.version }}"
+          git clone --recursive --depth 1 --branch "${{ steps.vars.outputs.version }}" https://github.com/redistimeseries/redistimeseries.git redistimeseries-src
 
       - name: Patch readies for Windows (python + Werror)
         working-directory: redistimeseries-src
@@ -72,25 +84,15 @@ jobs:
           # Fix readies platform detection on Windows: os.version() does not exist in Python.
           PAELLA_PLATFORM="deps/readies/paella/platform.py"
           if [ -f "$PAELLA_PLATFORM" ]; then
-            sed -i 's/self\.os_full_ver = os\.version()/self.os_full_ver = platform.version()/' "$PAELLA_PLATFORM" || true
-          fi
-
-          # Configure libevent to avoid building samples/regress on Windows (they fail to compile under MinGW).
-          LIBEVENT_MK="build/libevent/Makefile"
-          if [ -f "$LIBEVENT_MK" ]; then
           python - <<'PY'
           from pathlib import Path
-          
-          path = Path("build/libevent/Makefile")
+
+          path = Path("deps/readies/paella/platform.py")
           text = path.read_text(encoding="utf-8", errors="ignore")
-          flag_line = "CONFIGURE_FLAGS.windows += --disable-samples --disable-libevent-regress --disable-openssl\n"
-          marker = "include $(MK)/defs\n"
-          
-          if "--disable-samples" not in text:
-              if marker not in text:
-                  raise SystemExit("ERROR: cannot find 'include $(MK)/defs' in build/libevent/Makefile")
-              text = text.replace(marker, flag_line + marker, 1)
-              path.write_text(text, encoding="utf-8")
+          old = "self.os_full_ver = os.version()"
+          new = "self.os_full_ver = platform.version()"
+          if old in text and new not in text:
+              path.write_text(text.replace(old, new), encoding="utf-8")
           PY
           fi
 
@@ -111,12 +113,15 @@ jobs:
 
           # readies/bin/getpy3 uses MYPY when present; enforce a working interpreter with pip.
           export MYPY=python
-          "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS"
+
+          # 仅需构建 libevent 库：禁用 samples / regress / openssl，避免 MinGW 下样例与回归测试编译失败。
+          "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" \
+            "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl"
 
       - name: Package artifact
         run: |
           set -euo pipefail
-          DIST="dist/RedisTimeSeries-${{ inputs.timeseries_version }}-Windows-x64"
+          DIST="dist/RedisTimeSeries-${{ steps.vars.outputs.version }}-Windows-x64"
           mkdir -p "$DIST"
 
           TS_MOD="$(cd redistimeseries-src && find bin -maxdepth 6 -type f \( -name 'redistimeseries*.so' -o -name 'redistimeseries*.dll' \) | head -n 1)"
@@ -136,7 +141,7 @@ jobs:
           cp /mingw64/bin/libcrypto-3-x64.dll "$DIST/" || true
           cp /mingw64/bin/libssl-3-x64.dll "$DIST/" || true
 
-          (cd dist && 7z a -tzip "RedisTimeSeries-${{ inputs.timeseries_version }}-Windows-x64.zip" "RedisTimeSeries-${{ inputs.timeseries_version }}-Windows-x64")
+          (cd dist && 7z a -tzip "RedisTimeSeries-${{ steps.vars.outputs.version }}-Windows-x64.zip" "RedisTimeSeries-${{ steps.vars.outputs.version }}-Windows-x64")
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
