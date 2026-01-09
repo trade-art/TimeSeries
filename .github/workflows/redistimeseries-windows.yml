@@ -104,6 +104,56 @@ jobs:
             sed -i '/-Werror=implicit-function-declaration/d' "$CC_DEFS"
           fi
 
+          # hiredis 的 libevent adapter 在 Windows 下应使用 evutil_socket_t 作为 fd 类型，避免回调签名不匹配。
+          HIREDIS_LIBEVENT_H="deps/LibMR/deps/hiredis/adapters/libevent.h"
+          if [ -f "$HIREDIS_LIBEVENT_H" ]; then
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("deps/LibMR/deps/hiredis/adapters/libevent.h")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+          text2 = re.sub(
+              r"static\\s+void\\s+redisLibeventHandler\\s*\\(\\s*int\\s+fd\\s*,",
+              "static void redisLibeventHandler(evutil_socket_t fd,",
+              text,
+          )
+          if text2 != text:
+              path.write_text(text2, encoding="utf-8")
+          PY
+          fi
+
+          # LibMR 在 Windows 下应使用 libevent 的 windows threads；同时避免调用不存在的 err()。
+          LIBMR_EVENT_LOOP_C="deps/LibMR/src/event_loop.c"
+          if [ -f "$LIBMR_EVENT_LOOP_C" ]; then
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("deps/LibMR/src/event_loop.c")
+          text = path.read_text(encoding="utf-8", errors="ignore")
+
+          # 1) 禁止在未知平台调用 err()（Windows/MSYS2 会走到 else 分支）。
+          if 'err("thread_do()' in text:
+              text = text.replace(
+                  '  err("thread_do(): pthread_setname_np is not supported on this system");',
+                  '  /* Windows/MSYS2: 不支持 pthread_setname_np/prctl，跳过线程命名 */',
+              )
+
+          # 2) Windows 下使用 evthread_use_windows_threads；其它平台继续用 pthreads。
+          if "evthread_use_pthreads();" in text and "evthread_use_windows_threads" not in text:
+              text = text.replace(
+                  "    evthread_use_pthreads();",
+                  "#if defined(_WIN32) && !defined(__CYGWIN__)\n"
+                  "    evthread_use_windows_threads();\n"
+                  "#else\n"
+                  "    evthread_use_pthreads();\n"
+                  "#endif",
+              )
+
+          path.write_text(text, encoding="utf-8")
+          PY
+          fi
+
           # MinGW/Windows 没有 POSIX 的 strsep；rmutil 使用它解析 INFO 输出，会导致编译失败。
           RMUTIL_UTIL_C="deps/RedisModulesSDK/rmutil/util.c"
           if [ -f "$RMUTIL_UTIL_C" ]; then
@@ -190,19 +240,26 @@ jobs:
 
           path = Path("src/utils/arr.h")
           text = path.read_text(encoding="utf-8", errors="ignore")
-          if "\n#ifndef MAX\n" in text or "\n#define MAX(" in text:
+          if "#define MAX(" in text or "\n#ifndef MAX\n" in text:
               raise SystemExit(0)
 
-          insert_after = "#include <assert.h>\n"
-          if insert_after not in text:
+          newline = "\r\n" if "\r\n" in text else "\n"
+          lines = text.splitlines(True)
+          out = []
+          inserted = False
+          for line in lines:
+              out.append(line)
+              if not inserted and line.strip() == "#include <assert.h>":
+                  out.append(newline)
+                  out.append("#ifndef MAX" + newline)
+                  out.append("#define MAX(a,b) ((a) > (b) ? (a) : (b))" + newline)
+                  out.append("#endif" + newline)
+                  out.append(newline)
+                  inserted = True
+          if not inserted:
               raise SystemExit("ERROR: cannot find include anchor in src/utils/arr.h")
 
-          patch = (
-              "#ifndef MAX\n"
-              "#define MAX(a,b) ((a) > (b) ? (a) : (b))\n"
-              "#endif\n"
-          )
-          path.write_text(text.replace(insert_after, insert_after + "\n" + patch + "\n", 1), encoding="utf-8")
+          path.write_text("".join(out), encoding="utf-8")
           PY
           fi
 
@@ -214,19 +271,26 @@ jobs:
 
           path = Path("deps/LibMR/src/utils/arr.h")
           text = path.read_text(encoding="utf-8", errors="ignore")
-          if "\n#ifndef MAX\n" in text or "\n#define MAX(" in text:
+          if "#define MAX(" in text or "\n#ifndef MAX\n" in text:
               raise SystemExit(0)
 
-          insert_after = "#include <stdbool.h>\n"
-          if insert_after not in text:
+          newline = "\r\n" if "\r\n" in text else "\n"
+          lines = text.splitlines(True)
+          out = []
+          inserted = False
+          for line in lines:
+              out.append(line)
+              if not inserted and line.strip() == "#include <stdbool.h>":
+                  out.append(newline)
+                  out.append("#ifndef MAX" + newline)
+                  out.append("#define MAX(a,b) ((a) > (b) ? (a) : (b))" + newline)
+                  out.append("#endif" + newline)
+                  out.append(newline)
+                  inserted = True
+          if not inserted:
               raise SystemExit("ERROR: cannot find include anchor in deps/LibMR/src/utils/arr.h")
 
-          patch = (
-              "#ifndef MAX\n"
-              "#define MAX(a,b) ((a) > (b) ? (a) : (b))\n"
-              "#endif\n"
-          )
-          path.write_text(text.replace(insert_after, insert_after + "\n" + patch + "\n", 1), encoding="utf-8")
+          path.write_text("".join(out), encoding="utf-8")
           PY
           fi
 
@@ -241,16 +305,23 @@ jobs:
           if "typedef unsigned short ushort;" in text:
               raise SystemExit(0)
 
-          insert_after = "#include <assert.h>\n"
-          if insert_after not in text:
+          newline = "\r\n" if "\r\n" in text else "\n"
+          lines = text.splitlines(True)
+          out = []
+          inserted = False
+          for line in lines:
+              out.append(line)
+              if not inserted and line.strip() == "#include <assert.h>":
+                  out.append(newline)
+                  out.append("#if defined(_WIN32) && !defined(__CYGWIN__)" + newline)
+                  out.append("typedef unsigned short ushort;" + newline)
+                  out.append("#endif" + newline)
+                  out.append(newline)
+                  inserted = True
+          if not inserted:
               raise SystemExit("ERROR: cannot find include anchor in src/consts.h")
 
-          patch = (
-              "#if defined(_WIN32) && !defined(__CYGWIN__)\n"
-              "typedef unsigned short ushort;\n"
-              "#endif\n"
-          )
-          path.write_text(text.replace(insert_after, insert_after + "\n" + patch + "\n", 1), encoding="utf-8")
+          path.write_text("".join(out), encoding="utf-8")
           PY
           fi
 
