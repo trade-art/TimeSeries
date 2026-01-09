@@ -609,17 +609,20 @@ jobs:
             cp /mingw64/lib/libdlfcn.a /mingw64/lib/libdl.a || true
           fi
 
+          : > "$LOG"
+          echo "CODEX: start make (windows) $(date -Iseconds)" | tee -a "$LOG"
+
           set +e
           "$MAKE_BIN" DISABLE_WERRORS=1 -j"$JOBS" V=1 VERBOSE=1 \
             "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
-            2>&1 | tee "$LOG"
+            2>&1 | tee -a "$LOG"
           STATUS="$?"
           set -e
 
           # libevent on Windows may not produce libevent_pthreads.a, but upper layers can hard-link it.
-          # 这里无条件做一次“链接兜底修补 + 重跑”，避免只停留在第一轮失败。
-          if [ "${STATUS}" -ne 0 ]; then
-            echo "---- first make failed; attempting Windows link fixups ----" | tee -a "$LOG"
+          # 无论 make 返回码如何，只要日志里出现 “cannot find ...libevent_pthreads.a” 就执行兜底修补并重跑一次 make。
+          if grep -q "cannot find .*libevent_pthreads\\.a" "$LOG"; then
+            echo "CODEX: detected missing libevent_pthreads.a; applying link fixups and rerunning make" | tee -a "$LOG"
 
             # 1) 生成 libevent_pthreads.a：把 libevent.a 复制一份作为同名代理文件
             LIBEVENT_A="$(find bin -path '*/libevent/.libs/libevent.a' -print -quit 2>/dev/null || true)"
