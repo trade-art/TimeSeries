@@ -109,17 +109,17 @@ jobs:
           if [ -f "$HIREDIS_LIBEVENT_H" ]; then
           python - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path("deps/LibMR/deps/hiredis/adapters/libevent.h")
           text = path.read_text(encoding="utf-8", errors="ignore")
-          text2 = re.sub(
-              r"static\\s+void\\s+redisLibeventHandler\\s*\\(\\s*int\\s+fd\\s*,",
-              "static void redisLibeventHandler(evutil_socket_t fd,",
-              text,
-          )
-          if text2 != text:
-              path.write_text(text2, encoding="utf-8")
+
+          if "redisLibeventHandler(evutil_socket_t fd" not in text:
+              text2 = text.replace(
+                  "static void redisLibeventHandler(int fd, short event, void *arg) {",
+                  "static void redisLibeventHandler(evutil_socket_t fd, short event, void *arg) {",
+              )
+              if text2 != text:
+                  path.write_text(text2, encoding="utf-8")
           PY
           fi
 
