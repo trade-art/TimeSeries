@@ -618,9 +618,11 @@ jobs:
             "CONFIGURE_FLAGS.windows=--disable-samples --disable-libevent-regress --disable-openssl" \
             >> "$LOG" 2>&1 || STATUS=$?
           echo "CODEX: first make exit code: ${STATUS}" >> "$LOG"
+          echo "CODEX: after first make, deciding fixups" >> "$LOG"
 
           #
           #
+          echo "CODEX: entering fixups if" >> "$LOG"
           if [ "${STATUS}" -ne 0 ] || grep -Fq "libevent_pthreads.a" "$LOG"; then
             echo "CODEX: detected missing libevent_pthreads.a; applying link fixups and rerunning make" >> "$LOG"
 
